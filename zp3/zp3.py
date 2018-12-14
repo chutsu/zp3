@@ -6,6 +6,8 @@ import unittest
 
 import vlc
 import taglib
+from luma.core.interface.serial import spi
+from luma.oled.device import ssd1351
 # from gpiozero import Button
 
 
@@ -38,7 +40,8 @@ def extract_files(target_dir, filters=None):
 
 class Display:
     def __init__(self):
-        pass
+        serial = spi(device=0, port=0)
+        self.device = ssd1351(serial)
 
     def show_songs(self):
         pass
