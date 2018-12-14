@@ -9,3 +9,12 @@ deps:
 
 tests:
 	@cd zp3 && python3 -m unittest -v -b zp3.py
+
+test_song:
+	@cd zp3 && python3 -m unittest -v -b zp3.TestSong
+
+test_music_library:
+	@cd zp3 && python3 -m unittest -v -b zp3.TestMusicLibrary
+
+test_zp3:
+	@cd zp3 && python3 -m unittest -v -b zp3.TestZP3

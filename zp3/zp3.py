@@ -1,12 +1,7 @@
-from time import sleep
-from os import listdir
-from os.path import isfile
-from os.path import isdir
-from os.path import join
-from os.path import basename
-from os.path import splitext
+import os
+import time
+import subprocess
 import threading
-from threading import Thread
 import unittest
 
 import vlc
@@ -15,15 +10,15 @@ import taglib
 
 
 def file_ext(path):
-    f_name, f_ext = splitext(path)
+    f_name, f_ext = os.path.splitext(path)
     return f_ext
 
 
 def extract_files(target_dir, filters=None):
     files = []
 
-    for file_name in listdir(target_dir):
-        file_path = join(target_dir, file_name)
+    for file_name in os.listdir(target_dir):
+        file_path = os.path.join(target_dir, file_name)
 
         # Check if file path is in filters
         add_file = True
@@ -31,11 +26,11 @@ def extract_files(target_dir, filters=None):
             add_file = False
 
         # Add file path if file
-        if isfile(file_path) and add_file:
+        if os.path.isfile(file_path) and add_file:
             files.append(file_path)
 
         # Traverse deeper if directory
-        elif isdir(file_path):
+        elif os.path.isdir(file_path):
             files.extend(extract_files(file_path, filters))
 
     return files
@@ -106,9 +101,6 @@ class MusicLibrary:
         }
         self.queue = []
         self._build_database(music_dir)
-
-        # import pprint
-        # pprint.pprint(self.database)
 
     def _build_database(self, music_dir):
         files = sorted(extract_files(music_dir, [".mp3", ".flac"]))
@@ -198,7 +190,7 @@ class ZP3:
         self.volume_min = 0
         self.volume_step = 10
 
-        self.player_thread = None
+        self.thread = None
         self.music = MusicLibrary(music_dir)
         self.display = Display()
 
@@ -233,31 +225,31 @@ class ZP3:
         song_path = self.music.get_song()
         if self.is_playing is False:
             if self.song_time[0] != 0:
-                song_name = basename(song_path)
+                song_name = os.path.basename(song_path)
                 song_time = self.song_time[0] * 1e-3
                 print("Resuming: [%s] at [%.2fs]" % (song_name, song_time))
             else:
-                print("Playing: [%s]" % basename(song_path))
+                print("Playing: [%s]" % os.path.basename(song_path))
             args = [song_path, self.song_time]
-            self.player_thread = Thread(target=song_thread, args=(args,))
-            self.player_thread.keep_running = True
-            self.player_thread.volume = self.volume_level
-            self.player_thread.start()
+            self.thread = threading.Thread(target=song_thread, args=(args,))
+            self.thread.keep_running = True
+            self.thread.volume = self.volume_level
+            self.thread.start()
             self.is_playing = True
 
         elif self.is_playing is True:
             print("Pausing at [%.2fs]" % (self.song_time[0] * 1e-3))
-            self.player_thread.keep_running = False
-            self.player_thread.volume = self.volume_level
-            self.player_thread.join()
-            self.player_thread = None
+            self.thread.keep_running = False
+            self.thread.volume = self.volume_level
+            self.thread.join()
+            self.thread = None
             self.is_playing = False
 
     def _stop(self):
-        if self.player_thread is not None:
-            self.player_thread.keep_running = False
-            self.player_thread.join()
-            self.player_thread = None
+        if self.thread is not None:
+            self.thread.keep_running = False
+            self.thread.join()
+            self.thread = None
             self.is_playing = False
             self.song_time = [0]
 
@@ -280,7 +272,7 @@ class ZP3:
             return
         self.volume_level += self.volume_step
         self._keep_volumn_within_bounds()
-        self.player_thread.volume = self.volume_level
+        self.thread.volume = self.volume_level
         print("Volume increased to [%d]" % self.volume_level)
 
     def volume_down(self):
@@ -288,11 +280,14 @@ class ZP3:
             return
         self.volume_level -= self.volume_step
         self._keep_volumn_within_bounds()
-        self.player_thread.volume = self.volume_level
+        self.thread.volume = self.volume_level
         print("Volume decreased to [%d]" % self.volume_level)
 
     def hold(self):
         self.hold_mode = True if self.hold_mode is False else False
+
+    def power_off(self):
+        subprocess.call(['shutdown', '-h', 'now'], shell=False)
 
 
 #############################################################################
@@ -301,7 +296,7 @@ class ZP3:
 
 class TestSong(unittest.TestCase):
     def test_constructor(self):
-        song_path = join("test_data", "album1", "1-apple.mp3")
+        song_path = os.path.join("test_data", "album1", "1-apple.mp3")
         song = Song(song_path)
 
         self.assertEqual(song_path, song.file_path)
@@ -312,7 +307,7 @@ class TestSong(unittest.TestCase):
         self.assertEqual("2018", song.date)
 
     def test_show(self):
-        song_path = join("test_data", "album1", "1-apple.mp3")
+        song_path = os.path.join("test_data", "album1", "1-apple.mp3")
         song = Song(song_path)
         song.show()
 
@@ -352,16 +347,16 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 5 seconds
-        sleep(5)
+        time.sleep(5)
 
         # Pause for 3 seocnds
         self.zp3.play()
         self.assertFalse(self.zp3.is_playing)
-        sleep(3)
+        time.sleep(3)
 
         # Resume playing for another 10 seconds
         self.zp3.play()
-        sleep(10)
+        time.sleep(10)
 
         # Stop
         self.zp3._stop()
@@ -372,11 +367,11 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 5 seconds
-        sleep(5)
+        time.sleep(5)
 
         # Play next
         self.zp3.next()
-        sleep(10)
+        time.sleep(10)
         self.zp3._stop()
 
     def test_prev(self):
@@ -385,11 +380,11 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 5 seconds
-        sleep(5)
+        time.sleep(5)
 
         # Play next
         self.zp3.prev()
-        sleep(10)
+        time.sleep(10)
         self.zp3._stop()
 
     def test_volume_up(self):
@@ -398,7 +393,7 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 2 seconds
-        sleep(2)
+        time.sleep(2)
 
         # Volume up
         self.zp3.volume_up()
@@ -407,7 +402,7 @@ class TestZP3(unittest.TestCase):
         self.zp3.volume_up()
 
         # Sleep for 5 seconds
-        sleep(5)
+        time.sleep(5)
         self.zp3._stop()
 
     def test_volume_down(self):
@@ -416,7 +411,7 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 2 seconds
-        sleep(2)
+        time.sleep(2)
 
         # Volume up
         self.zp3.volume_down()
@@ -425,5 +420,5 @@ class TestZP3(unittest.TestCase):
         self.zp3.volume_down()
 
         # Sleep for 5 seconds
-        sleep(5)
+        time.sleep(5)
         self.zp3._stop()
