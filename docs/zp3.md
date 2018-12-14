@@ -16,5 +16,5 @@
 				key_mgmt=WPA-PSK
 		}
 
-Replace the above with your relevant details. You can obtain your Wifi's SSID
-with the command `iwlist wlan0 scan` where `wlan0` is the wifi interface.
+    Replace the above with your relevant details. You can obtain your Wifi's SSID
+    with the command `iwlist wlan0 scan` where `wlan0` is the wifi interface.
