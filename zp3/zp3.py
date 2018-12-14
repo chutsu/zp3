@@ -92,9 +92,11 @@ def song_thread(args):
     player.pause()                 # Pause so that we can set time
     player.set_time(song_time[0])  # Set the time
     player.play()                  # Continue playing
+    player.audio_set_volume(getattr(thread, "volume"))
 
     # Keep thread alive
     while player.is_playing and getattr(thread, "keep_running", True):
+        player.audio_set_volume(getattr(thread, "volume"))
         song_time[0] = player.get_time()
 
     # Stop
@@ -108,7 +110,10 @@ class ZP3:
 
         self.is_playing = False
         self.song_time = [0]  # List because it has to be mutable for threads
-        self.volume_level = 0.3
+        self.volume_level = 50
+        self.volume_max = 100
+        self.volume_min = 0
+        self.volume_step = 10
 
         self.player_thread = None
         self.music = MusicLibrary(music_dir)
@@ -152,12 +157,15 @@ class ZP3:
                 print("Playing: [%s]" % basename(song_path))
             args = [song_path, self.song_time]
             self.player_thread = Thread(target=song_thread, args=(args,))
+            self.player_thread.keep_running = True
+            self.player_thread.volume = self.volume_level
             self.player_thread.start()
             self.is_playing = True
 
         elif self.is_playing is True:
             print("Pausing at [%.2fs]" % (self.song_time[0] * 1e-3))
             self.player_thread.keep_running = False
+            self.player_thread.volume = self.volume_level
             self.player_thread.join()
             self.player_thread = None
             self.is_playing = False
@@ -179,24 +187,26 @@ class ZP3:
         self.play()
 
     def _keep_volumn_within_bounds(self):
-        if self.volume_level > 1.0:
-            self.volume_level = 1.0
-        if self.volume_level < 0.0:
-            self.volume_level = 0.0
+        if self.volume_level > self.volume_max:
+            self.volume_level = self.volume_max
+        if self.volume_level < self.volume_min:
+            self.volume_level = self.volume_min
 
     def volume_up(self):
         if self.hold_mode:
             return
-
-        self.volume_level += 0.1
+        self.volume_level += self.volume_step
         self._keep_volumn_within_bounds()
+        self.player_thread.volume = self.volume_level
+        print("Volume increased to [%d]" % self.volume_level)
 
     def volume_down(self):
         if self.hold_mode:
             return
-
-        self.volume_level -= 0.1
+        self.volume_level -= self.volume_step
         self._keep_volumn_within_bounds()
+        self.player_thread.volume = self.volume_level
+        print("Volume decreased to [%d]" % self.volume_level)
 
     def hold(self):
         self.hold_mode = True if self.hold_mode is False else False
@@ -276,4 +286,40 @@ class TestZP3(unittest.TestCase):
         # Play next
         self.zp3.prev()
         time.sleep(10)
+        self.zp3._stop()
+
+    def test_volume_up(self):
+        # Play song
+        self.zp3.play()
+        self.assertTrue(self.zp3.is_playing)
+
+        # Sleep for 2 seconds
+        time.sleep(2)
+
+        # Volume up
+        self.zp3.volume_up()
+        self.zp3.volume_up()
+        self.zp3.volume_up()
+        self.zp3.volume_up()
+
+        # Sleep for 5 seconds
+        time.sleep(5)
+        self.zp3._stop()
+
+    def test_volume_down(self):
+        # Play song
+        self.zp3.play()
+        self.assertTrue(self.zp3.is_playing)
+
+        # Sleep for 2 seconds
+        time.sleep(2)
+
+        # Volume up
+        self.zp3.volume_down()
+        self.zp3.volume_down()
+        self.zp3.volume_down()
+        self.zp3.volume_down()
+
+        # Sleep for 5 seconds
+        time.sleep(5)
         self.zp3._stop()
