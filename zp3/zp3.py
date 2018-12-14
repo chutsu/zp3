@@ -1,4 +1,4 @@
-import time
+from time import sleep
 from os import listdir
 from os.path import isfile
 from os.path import isdir
@@ -10,6 +10,7 @@ from threading import Thread
 import unittest
 
 import vlc
+import taglib
 # from gpiozero import Button
 
 
@@ -54,33 +55,115 @@ class Display:
         pass
 
 
+class Song:
+    def __init__(self, file_path):
+        self.file_path = file_path
+
+        self.track_number = None
+        self.track_name = None
+        self.artist = None
+        self.album = None
+        self.date = None
+
+        song = taglib.File(self.file_path)
+        tags = song.tags
+        if tags.get("TRACKNUMBER"):
+            self.track_number = tags["TRACKNUMBER"][0]
+
+        if tags.get("TITLE"):
+            self.track_name = tags["TITLE"][0]
+
+        if tags.get("ARTIST"):
+            self.artist = tags["ARTIST"][0]
+
+        if tags.get("ALBUM"):
+            self.album = tags["ALBUM"][0]
+
+        if tags.get("DATE"):
+            self.date = tags["DATE"][0]
+
+    def show(self):
+        return "%s\n%s\n%s" % (self.track_name, self.artist, self.album)
+
+    def __str__(self):
+        retval = ""
+        retval += "file_path: %s\n" % self.file_path
+        retval += "track_number: %s\n" % self.track_number
+        retval += "track_name: %s\n" % self.track_name
+        retval += "album: %s\n" % self.album
+        retval += "date: %s\n" % self.date
+        return retval
+
+
 class MusicLibrary:
     def __init__(self, music_dir):
         self.song_index = 0
-        self.database = sorted(extract_files(music_dir, [".mp3", ".flac"]))
+        self.albums = []
+        self.database = {
+            "songs": [],
+            "albums": {},
+            "artists": {}
+        }
+        self.queue = []
+        self._build_database(music_dir)
+
+        # import pprint
+        # pprint.pprint(self.database)
+
+    def _build_database(self, music_dir):
+        files = sorted(extract_files(music_dir, [".mp3", ".flac"]))
+        self.queue = files
+
+        for file_path in files:
+            song = Song(file_path)
+
+            # Add song to database
+            self.database["songs"].append(song)
+
+            # Add album to database
+            if song.album not in self.database["albums"]:
+                self.database["albums"][song.album] = [song]
+            else:
+                self.database["albums"][song.album].append(song)
+
+            # Add artist to database
+            if song.artist not in self.database["artists"]:
+                self.database["artists"][song.artist] = [song]
+            else:
+                self.database["artists"][song.artist].append(song)
+
+    def set_mode(self, mode, value):
+        if mode == "artist":
+            self.queue = self.database["artists"][value]
+        elif mode == "album":
+            self.queue = self.database["albums"][value]
+        elif mode == "song":
+            self.queue = self.database["songs"]
+        else:
+            self.queue = self.database["songs"]
 
     def get_song(self):
-        return self.database[self.song_index]
+        return self.queue[self.song_index]
 
     def get_next_song(self):
         self.song_index += 1
 
-        if self.song_index > len(self.database):
+        if self.song_index > len(self.queue):
             self.song_index = 0
         elif self.song_index < 0:
-            self.song_index = len(self.database) - 1
+            self.song_index = len(self.queue) - 1
 
-        return self.database[self.song_index]
+        return self.queue[self.song_index]
 
     def get_prev_song(self):
         self.song_index -= 1
 
-        if self.song_index > len(self.database):
+        if self.song_index > len(self.queue):
             self.song_index = 0
         elif self.song_index < 0:
-            self.song_index = len(self.database) - 1
+            self.song_index = len(self.queue) - 1
 
-        return self.database[self.song_index]
+        return self.queue[self.song_index]
 
 
 def song_thread(args):
@@ -216,25 +299,46 @@ class ZP3:
 # UNITTESTS
 #############################################################################
 
+class TestSong(unittest.TestCase):
+    def test_constructor(self):
+        song_path = join("test_data", "album1", "1-apple.mp3")
+        song = Song(song_path)
+
+        self.assertEqual(song_path, song.file_path)
+        self.assertEqual("Apple", song.track_name)
+        self.assertEqual("1", song.track_number)
+        self.assertEqual("Bob Dylan", song.artist)
+        self.assertEqual("ALBUM1", song.album)
+        self.assertEqual("2018", song.date)
+
+    def test_show(self):
+        song_path = join("test_data", "album1", "1-apple.mp3")
+        song = Song(song_path)
+        song.show()
+
 
 class TestMusicLibrary(unittest.TestCase):
     def setUp(self):
         self.music = MusicLibrary("test_data")
-        self.assertEqual(10, len(self.music.database))
+        # self.music = MusicLibrary("/data/music")
+        self.assertTrue(len(self.music.queue) > 0)
+
+    def test_dummy(self):
+        pass
 
     def test_get_song(self):
         song = self.music.get_song()
-        self.assertEqual("test_data/album1/1 - apple.mp3", song)
+        self.assertEqual("test_data/album1/1-apple.mp3", song)
         self.assertEqual(0, self.music.song_index)
 
     def test_get_prev_song(self):
         song = self.music.get_prev_song()
-        self.assertEqual("test_data/album2/5 - foxtrot.mp3", song)
+        self.assertEqual("test_data/album2/5-foxtrot.mp3", song)
         self.assertEqual(9, self.music.song_index)
 
     def test_get_next_song(self):
         song = self.music.get_next_song()
-        self.assertEqual("test_data/album1/2 - banana.mp3", song)
+        self.assertEqual("test_data/album1/2-banana.mp3", song)
         self.assertEqual(1, self.music.song_index)
 
 
@@ -248,16 +352,16 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 5 seconds
-        time.sleep(5)
+        sleep(5)
 
         # Pause for 3 seocnds
         self.zp3.play()
         self.assertFalse(self.zp3.is_playing)
-        time.sleep(3)
+        sleep(3)
 
         # Resume playing for another 10 seconds
         self.zp3.play()
-        time.sleep(10)
+        sleep(10)
 
         # Stop
         self.zp3._stop()
@@ -268,11 +372,11 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 5 seconds
-        time.sleep(5)
+        sleep(5)
 
         # Play next
         self.zp3.next()
-        time.sleep(10)
+        sleep(10)
         self.zp3._stop()
 
     def test_prev(self):
@@ -281,11 +385,11 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 5 seconds
-        time.sleep(5)
+        sleep(5)
 
         # Play next
         self.zp3.prev()
-        time.sleep(10)
+        sleep(10)
         self.zp3._stop()
 
     def test_volume_up(self):
@@ -294,7 +398,7 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 2 seconds
-        time.sleep(2)
+        sleep(2)
 
         # Volume up
         self.zp3.volume_up()
@@ -303,7 +407,7 @@ class TestZP3(unittest.TestCase):
         self.zp3.volume_up()
 
         # Sleep for 5 seconds
-        time.sleep(5)
+        sleep(5)
         self.zp3._stop()
 
     def test_volume_down(self):
@@ -312,7 +416,7 @@ class TestZP3(unittest.TestCase):
         self.assertTrue(self.zp3.is_playing)
 
         # Sleep for 2 seconds
-        time.sleep(2)
+        sleep(2)
 
         # Volume up
         self.zp3.volume_down()
@@ -321,5 +425,5 @@ class TestZP3(unittest.TestCase):
         self.zp3.volume_down()
 
         # Sleep for 5 seconds
-        time.sleep(5)
+        sleep(5)
         self.zp3._stop()
