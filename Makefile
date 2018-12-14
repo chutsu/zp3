@@ -1,4 +1,4 @@
-all: deps
+all: deps tests
 
 deps:
 	@echo "Installing libtag" && sudo apt-get install libtag1-dev -y -qq
@@ -7,5 +7,5 @@ deps:
 	@echo "Installing gpiozero" && pip3 install -q gpiozero
 	@echo "Installing pytaglib" && pip3 install -q pytaglib
 
-run_tests:
-	@cd zp3 && python3 -m unittest zp3.py
+tests:
+	@cd zp3 && python3 -m unittest -v -b zp3.py
