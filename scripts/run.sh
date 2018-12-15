@@ -5,6 +5,7 @@ set -e
 # python3 -m unittest zp3.py
 
 # make tests
-make test_song
-# make test_music_library
-# make test_zp3
+# make deps
+make test_display
+# make test_song
+# make test_music_library # make test_zp3

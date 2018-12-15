@@ -5,9 +5,11 @@ import threading
 import unittest
 
 import vlc
-import taglib
+# import taglib
+from PIL import ImageFont
 from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
+from luma.core.render import canvas
 # from gpiozero import Button
 
 
@@ -42,15 +44,161 @@ class Display:
     def __init__(self):
         serial = spi(device=0, port=0)
         self.device = ssd1351(serial)
+        self.font_path = "/usr/share/fonts/truetype/msttcorefonts/arial.ttf"
+        self.font_size = 10
+        self.font = ImageFont.truetype(self.font_path, self.font_size)
 
-    def show_songs(self):
-        pass
+    def show_menu(self):
+        with canvas(self.device) as draw:
+            height_step = (self.device.height / 10)
+            height_padding = 0
+            width_padding = 2
+            fill_toggle = True
 
-    def show_queue(self):
-        pass
+            items = ["Songs", "Artists", "Albums"] 
+            for i in range(10):
+                if fill_toggle:
+                    fill_toggle = False
+                else:
+                    fill_toggle = True
+
+                top_left = (0, height_step * i)
+                bottom_right = (self.device.width, height_step * (i + 1))
+                rect_cord = [top_left, bottom_right]
+                fill = "white" if fill_toggle else "black"
+                draw.rectangle(rect_cord, fill=fill)
+
+                if len(items):
+                    x = width_padding
+                    y = (height_step * i) + height_padding
+                    text = "> %s" % items.pop(0)
+                    fill = "black" if fill_toggle else "white"
+                    draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_number(self, draw, track_number, track_total):
+        # Track number
+        x = 5
+        y = 10
+        text = "[%s / %s]" % (track_number, track_total)
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_name(self, draw, track_name):
+        x = 5
+        y = 30
+        text = track_name
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_artist(self, draw, track_artist):
+        x = 5
+        y = 45
+        text = track_artist
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_album(self, draw, track_album):
+        x = 5
+        y = 60
+        text = track_album
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_progress(self, draw, track_progress, track_time, track_remaining):
+        # Track progress
+        # -- Progress outline
+        top_left = (10, 80)
+        bottom_right = (self.device.width - 10, top_left[1] + 10)
+        rect_cord = [top_left, bottom_right]
+        draw.rectangle(rect_cord, outline="white", fill="black")
+        # -- Progress bar
+        bottom_right = ((self.device.width - 10) * track_progress, top_left[1] + 10)
+        rect_cord = [top_left, bottom_right]
+        draw.rectangle(rect_cord, fill="white")
+        # -- Current track time
+        x = top_left[0]
+        y = bottom_right[1] + 5
+        text = track_time
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+        # -- Remaining track time
+        x = self.device.width - 32
+        y = bottom_right[1] + 5
+        text = track_remaining
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_status(self, draw, status):
+        if status == "PAUSE":
+            # Pause box
+            width = 14
+            center = (self.device.width / 2.0, 110)
+            top_left = (center[0] - width / 2.0, center[1] - width / 2.0)
+            bottom_right = (center[0] + width / 2.0, center[1] + width / 2.0)
+            rect_cord = [top_left, bottom_right]
+            fill = "white"
+            draw.rectangle(rect_cord, fill=fill)
+
+            # Pause split
+            height = 14
+            width = 4
+            center = (self.device.width / 2.0, 110)
+            top_left = (center[0] - width / 2.0, center[1] - height / 2.0)
+            bottom_right = (center[0] + width / 2.0, center[1] + height / 2.0)
+            rect_cord = [top_left, bottom_right]
+            fill = "black"
+            draw.rectangle(rect_cord, fill=fill)
+
+        elif status == "PLAY":
+            width = 14
+            center = (self.device.width / 2.0, 110)
+            top_left = (center[0] - width / 2.0, center[1] - width / 2.0)
+            bottom_left = (center[0] - width / 2.0, center[1] + width / 2.0)
+            middle_right = (center[0] + width / 2.0, center[1])
+            poly_cords = [top_left, bottom_left, middle_right]
+            fill = "white"
+            draw.polygon(poly_cords, fill=fill)
 
     def show_playing(self):
-        pass
+        track_name =  "All These Things That I've Done"
+        track_number = "5"
+        track_total = "13"
+        track_artist = "The Killers"
+        track_album = "Hot Fuss"
+        progress = 0.67
+        time_now = "3:27"
+        time_remaining = "-1:10"
+
+        with canvas(self.device) as draw:
+            self._track_number(draw, track_number, track_total)
+            self._track_name(draw, track_name)
+            self._track_artist(draw, track_artist)
+            self._track_album(draw, track_album)
+            self._track_name(draw, track_name)
+            self._track_progress(draw, progress, time_now, time_remaining)
+            self._track_status(draw, "PAUSE")
+
+    def show_volume(self):
+        width = 5
+
+        with canvas(self.device) as draw:
+            # -- Volume text
+            x = 38
+            y = 40
+            text = "Volume"
+            fill = "white"
+            font_size = 15
+            font = ImageFont.truetype(self.font_path, font_size)
+            draw.text((x, y), text, fill=fill, font=font)
+
+            # -- Volume boxes
+            for i in range(0, 20, 2):
+                top_left = (15 + (width * i), 70)
+                bottom_right = (15 + (width * (i + 1)), 80)
+                rect_cord = [top_left, bottom_right]
+                fill = "black"
+                outline = "white"
+                draw.rectangle(rect_cord, outline=outline, fill=fill)
 
 
 class Song:
@@ -296,6 +444,24 @@ class ZP3:
 #############################################################################
 # UNITTESTS
 #############################################################################
+
+
+class TestDisplay(unittest.TestCase):
+    def test_show_menu(self):
+        display = Display()
+        display.show_menu()
+        time.sleep(5)
+
+    def test_show_playing(self):
+        display = Display()
+        display.show_playing()
+        time.sleep(5)
+
+    def test_show_volume(self):
+        display = Display()
+        display.show_volume()
+        time.sleep(5)
+
 
 class TestSong(unittest.TestCase):
     def test_constructor(self):

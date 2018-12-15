@@ -6,6 +6,9 @@ deps:
 tests:
 	@cd zp3 && python3 -m unittest -v -b zp3.py
 
+test_display:
+	@cd zp3 && python3 -m unittest -v zp3.TestDisplay
+
 test_song:
 	@cd zp3 && python3 -m unittest -v -b zp3.TestSong
 
