@@ -6,6 +6,8 @@ set -e
 
 # make tests
 # make deps
-make test_display
+# make test_buttons
+# make test_display
 # make test_song
-# make test_music_library # make test_zp3
+# make test_music_library 
+make test_zp3

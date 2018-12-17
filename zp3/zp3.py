@@ -5,12 +5,12 @@ import threading
 import unittest
 
 import vlc
-# import taglib
+import mutagen
+import gpiozero as gpio
 from PIL import ImageFont
 from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
 from luma.core.render import canvas
-# from gpiozero import Button
 
 
 def file_ext(path):
@@ -44,7 +44,7 @@ class Display:
     def __init__(self):
         serial = spi(device=0, port=0)
         self.device = ssd1351(serial)
-        self.font_path = "/usr/share/fonts/truetype/msttcorefonts/arial.ttf"
+        self.font_path = "/usr/share/fonts/truetype/msttcorefonts/verdana.ttf"
         self.font_size = 10
         self.font = ImageFont.truetype(self.font_path, self.font_size)
 
@@ -211,22 +211,21 @@ class Song:
         self.album = None
         self.date = None
 
-        song = taglib.File(self.file_path)
-        tags = song.tags
-        if tags.get("TRACKNUMBER"):
-            self.track_number = tags["TRACKNUMBER"][0]
+        tags = mutagen.File(self.file_path)
+        if tags.get("tracknumber"):
+            self.track_number = tags["tracknumber"][0]
 
-        if tags.get("TITLE"):
-            self.track_name = tags["TITLE"][0]
+        if tags.get("title"):
+            self.track_name = tags["title"][0]
 
-        if tags.get("ARTIST"):
-            self.artist = tags["ARTIST"][0]
+        if tags.get("artist"):
+            self.artist = tags["artist"][0]
 
-        if tags.get("ALBUM"):
-            self.album = tags["ALBUM"][0]
+        if tags.get("album"):
+            self.album = tags["album"][0]
 
-        if tags.get("DATE"):
-            self.date = tags["DATE"][0]
+        if tags.get("date"):
+            self.date = tags["date"][0]
 
     def show(self):
         return "%s\n%s\n%s" % (self.track_name, self.artist, self.album)
@@ -345,17 +344,16 @@ class ZP3:
         self.music = MusicLibrary(music_dir)
         self.display = Display()
 
-        # self.btn_prev = Button(1)
-        # self.btn_menu = Button(1)
-        # self.btn_play = Button(1)
-        # self.btn_next = Button(1)
-        # self.btn_hold = Button(1)
+        self.btn_up = gpio.Button(5)
+        self.btn_down = gpio.Button(6)
+        self.btn_left = gpio.Button(13)
+        self.btn_right = gpio.Button(19)
+        self.btn_enter = gpio.Button(26)
 
-        # self.btn_prev.when_pressed = self.prev
-        # self.btn_menu.when_pressed = self.menu
-        # self.btn_play.when_pressed = self.play
-        # self.btn_next.when_pressed = self.next
-        # self.btn_hold.when_held = self.hold
+        self.btn_up.when_pressed = self.menu
+        self.btn_down.when_pressed = self.play
+        self.btn_left.when_pressed = self.prev
+        self.btn_right.when_pressed = self.next
 
     def prev(self):
         if self.hold_mode:
@@ -445,6 +443,39 @@ class ZP3:
 # UNITTESTS
 #############################################################################
 
+def _btn_up_handler():
+    print("Up button pressed!")
+
+def _btn_down_handler():
+    print("Down button pressed!")
+
+def _btn_left_handler():
+    print("Left button pressed!")
+
+def _btn_right_handler():
+    print("Right button pressed!")
+
+def _btn_enter_handler():
+    print("Enter button pressed!")
+
+
+class TestButtons(unittest.TestCase):
+    def test_sandbox(self):
+        btn_up = gpio.Button(5)
+        btn_down = gpio.Button(6)
+        btn_left = gpio.Button(13)
+        btn_right = gpio.Button(19)
+        btn_enter = gpio.Button(26)
+        
+        btn_up.when_pressed = _btn_up_handler
+        btn_down.when_pressed = _btn_down_handler
+        btn_left.when_pressed = _btn_left_handler
+        btn_right.when_pressed = _btn_right_handler
+        btn_enter.when_pressed = _btn_enter_handler
+
+        import signal
+        signal.pause()
+
 
 class TestDisplay(unittest.TestCase):
     def test_show_menu(self):
@@ -508,86 +539,90 @@ class TestMusicLibrary(unittest.TestCase):
 
 class TestZP3(unittest.TestCase):
     def setUp(self):
-        self.zp3 = ZP3("/data/music/")
+        self.zp3 = ZP3("/home/pi/music/")
 
-    def test_play(self):
-        # Play song
-        self.zp3.play()
-        self.assertTrue(self.zp3.is_playing)
+    # def test_play(self):
+    #     # Play song
+    #     self.zp3.play()
+    #     self.assertTrue(self.zp3.is_playing)
 
-        # Sleep for 5 seconds
-        time.sleep(5)
+    #     # Sleep for 5 seconds
+    #     time.sleep(5)
 
-        # Pause for 3 seocnds
-        self.zp3.play()
-        self.assertFalse(self.zp3.is_playing)
-        time.sleep(3)
+    #     # Pause for 3 seocnds
+    #     self.zp3.play()
+    #     self.assertFalse(self.zp3.is_playing)
+    #     time.sleep(3)
 
-        # Resume playing for another 10 seconds
-        self.zp3.play()
-        time.sleep(10)
+    #     # Resume playing for another 10 seconds
+    #     self.zp3.play()
+    #     time.sleep(10)
 
-        # Stop
-        self.zp3._stop()
+    #     # Stop
+    #     self.zp3._stop()
 
-    def test_next(self):
-        # Play song
-        self.zp3.play()
-        self.assertTrue(self.zp3.is_playing)
+    # def test_next(self):
+    #     # Play song
+    #     self.zp3.play()
+    #     self.assertTrue(self.zp3.is_playing)
 
-        # Sleep for 5 seconds
-        time.sleep(5)
+    #     # Sleep for 5 seconds
+    #     time.sleep(5)
 
-        # Play next
-        self.zp3.next()
-        time.sleep(10)
-        self.zp3._stop()
+    #     # Play next
+    #     self.zp3.next()
+    #     time.sleep(10)
+    #     self.zp3._stop()
 
-    def test_prev(self):
-        # Play song
-        self.zp3.play()
-        self.assertTrue(self.zp3.is_playing)
+    # def test_prev(self):
+    #     # Play song
+    #     self.zp3.play()
+    #     self.assertTrue(self.zp3.is_playing)
 
-        # Sleep for 5 seconds
-        time.sleep(5)
+    #     # Sleep for 5 seconds
+    #     time.sleep(5)
 
-        # Play next
-        self.zp3.prev()
-        time.sleep(10)
-        self.zp3._stop()
+    #     # Play next
+    #     self.zp3.prev()
+    #     time.sleep(10)
+    #     self.zp3._stop()
 
-    def test_volume_up(self):
-        # Play song
-        self.zp3.play()
-        self.assertTrue(self.zp3.is_playing)
+    # def test_volume_up(self):
+    #     # Play song
+    #     self.zp3.play()
+    #     self.assertTrue(self.zp3.is_playing)
 
-        # Sleep for 2 seconds
-        time.sleep(2)
+    #     # Sleep for 2 seconds
+    #     time.sleep(2)
 
-        # Volume up
-        self.zp3.volume_up()
-        self.zp3.volume_up()
-        self.zp3.volume_up()
-        self.zp3.volume_up()
+    #     # Volume up
+    #     self.zp3.volume_up()
+    #     self.zp3.volume_up()
+    #     self.zp3.volume_up()
+    #     self.zp3.volume_up()
 
-        # Sleep for 5 seconds
-        time.sleep(5)
-        self.zp3._stop()
+    #     # Sleep for 5 seconds
+    #     time.sleep(5)
+    #     self.zp3._stop()
 
-    def test_volume_down(self):
-        # Play song
-        self.zp3.play()
-        self.assertTrue(self.zp3.is_playing)
+    # def test_volume_down(self):
+    #     # Play song
+    #     self.zp3.play()
+    #     self.assertTrue(self.zp3.is_playing)
 
-        # Sleep for 2 seconds
-        time.sleep(2)
+    #     # Sleep for 2 seconds
+    #     time.sleep(2)
 
-        # Volume up
-        self.zp3.volume_down()
-        self.zp3.volume_down()
-        self.zp3.volume_down()
-        self.zp3.volume_down()
+    #     # Volume up
+    #     self.zp3.volume_down()
+    #     self.zp3.volume_down()
+    #     self.zp3.volume_down()
+    #     self.zp3.volume_down()
 
-        # Sleep for 5 seconds
-        time.sleep(5)
-        self.zp3._stop()
+    #     # Sleep for 5 seconds
+    #     time.sleep(5)
+    #     self.zp3._stop()
+
+    def test_loop(self):
+        import signal
+        signal.pause()

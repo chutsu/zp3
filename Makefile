@@ -6,6 +6,9 @@ deps:
 tests:
 	@cd zp3 && python3 -m unittest -v -b zp3.py
 
+test_buttons:
+	@cd zp3 && python3 -m unittest -v zp3.TestButtons
+
 test_display:
 	@cd zp3 && python3 -m unittest -v zp3.TestDisplay
 
@@ -16,4 +19,4 @@ test_music_library:
 	@cd zp3 && python3 -m unittest -v -b zp3.TestMusicLibrary
 
 test_zp3:
-	@cd zp3 && python3 -m unittest -v -b zp3.TestZP3
+	@cd zp3 && python3 -m unittest zp3.TestZP3
