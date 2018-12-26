@@ -169,14 +169,12 @@ class Display:
             height_padding = 0
             width_padding = 2
 
+            menu_page = int(index / 10.0)
+            song_index = index % 10
             song_list = list(songs)
-            song_index = ((index + 1) % 10) - 1
-            if index > 9:
-                start = ((index + 1) % 10) + 10
-                end = start + 10
-                song_list = song_list[start:end]
+            song_list = song_list[10 * menu_page:]
 
-            for i in range(10):
+            for i in range(len(song_list)):
                 # Selected
                 top_left = (0, height_step * i)
                 bottom_right = (self.device.width, height_step * (i + 1))
@@ -420,8 +418,8 @@ class ZP3:
     def _keep_menu_index_within_bounds(self):
         if self.menu_index < 0:
             self.menu_index = 0
-        elif self.menu_index >= len(self.music.queue):
-            self.menu_index = len(self.music.queue)
+        elif (self.menu_index + 1) >= len(self.songs):
+            self.menu_index = len(self.songs) - 1
 
     def menu_up(self):
         print("UP")
@@ -433,6 +431,7 @@ class ZP3:
         print("DOWN")
         self.menu_index += 1
         self._keep_menu_index_within_bounds()
+        print("menu_index: ", self.menu_index)
         self.display.show_menu(self.songs, self.menu_index)
 
     def menu_mode(self):
