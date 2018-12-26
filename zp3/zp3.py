@@ -6,6 +6,8 @@ import unittest
 
 import vlc
 import mutagen
+import mutagen.flac
+import mutagen.mp3
 import gpiozero as gpio
 from PIL import ImageFont
 from luma.core.interface.serial import spi
@@ -40,176 +42,21 @@ def extract_files(target_dir, filters=None):
     return files
 
 
-class Display:
-    def __init__(self):
-        serial = spi(device=0, port=0)
-        self.device = ssd1351(serial)
-        self.font_path = "/usr/share/fonts/truetype/msttcorefonts/verdana.ttf"
-        self.font_size = 10
-        self.font = ImageFont.truetype(self.font_path, self.font_size)
-
-    def show_menu(self):
-        with canvas(self.device) as draw:
-            height_step = (self.device.height / 10)
-            height_padding = 0
-            width_padding = 2
-            fill_toggle = True
-
-            items = ["Songs", "Artists", "Albums"] 
-            for i in range(10):
-                if fill_toggle:
-                    fill_toggle = False
-                else:
-                    fill_toggle = True
-
-                top_left = (0, height_step * i)
-                bottom_right = (self.device.width, height_step * (i + 1))
-                rect_cord = [top_left, bottom_right]
-                fill = "white" if fill_toggle else "black"
-                draw.rectangle(rect_cord, fill=fill)
-
-                if len(items):
-                    x = width_padding
-                    y = (height_step * i) + height_padding
-                    text = "> %s" % items.pop(0)
-                    fill = "black" if fill_toggle else "white"
-                    draw.text((x, y), text, fill=fill, font=self.font)
-
-    def _track_number(self, draw, track_number, track_total):
-        # Track number
-        x = 5
-        y = 10
-        text = "[%s / %s]" % (track_number, track_total)
-        fill = "white"
-        draw.text((x, y), text, fill=fill, font=self.font)
-
-    def _track_name(self, draw, track_name):
-        x = 5
-        y = 30
-        text = track_name
-        fill = "white"
-        draw.text((x, y), text, fill=fill, font=self.font)
-
-    def _track_artist(self, draw, track_artist):
-        x = 5
-        y = 45
-        text = track_artist
-        fill = "white"
-        draw.text((x, y), text, fill=fill, font=self.font)
-
-    def _track_album(self, draw, track_album):
-        x = 5
-        y = 60
-        text = track_album
-        fill = "white"
-        draw.text((x, y), text, fill=fill, font=self.font)
-
-    def _track_progress(self, draw, track_progress, track_time, track_remaining):
-        # Track progress
-        # -- Progress outline
-        top_left = (10, 80)
-        bottom_right = (self.device.width - 10, top_left[1] + 10)
-        rect_cord = [top_left, bottom_right]
-        draw.rectangle(rect_cord, outline="white", fill="black")
-        # -- Progress bar
-        bottom_right = ((self.device.width - 10) * track_progress, top_left[1] + 10)
-        rect_cord = [top_left, bottom_right]
-        draw.rectangle(rect_cord, fill="white")
-        # -- Current track time
-        x = top_left[0]
-        y = bottom_right[1] + 5
-        text = track_time
-        fill = "white"
-        draw.text((x, y), text, fill=fill, font=self.font)
-        # -- Remaining track time
-        x = self.device.width - 32
-        y = bottom_right[1] + 5
-        text = track_remaining
-        fill = "white"
-        draw.text((x, y), text, fill=fill, font=self.font)
-
-    def _track_status(self, draw, status):
-        if status == "PAUSE":
-            # Pause box
-            width = 14
-            center = (self.device.width / 2.0, 110)
-            top_left = (center[0] - width / 2.0, center[1] - width / 2.0)
-            bottom_right = (center[0] + width / 2.0, center[1] + width / 2.0)
-            rect_cord = [top_left, bottom_right]
-            fill = "white"
-            draw.rectangle(rect_cord, fill=fill)
-
-            # Pause split
-            height = 14
-            width = 4
-            center = (self.device.width / 2.0, 110)
-            top_left = (center[0] - width / 2.0, center[1] - height / 2.0)
-            bottom_right = (center[0] + width / 2.0, center[1] + height / 2.0)
-            rect_cord = [top_left, bottom_right]
-            fill = "black"
-            draw.rectangle(rect_cord, fill=fill)
-
-        elif status == "PLAY":
-            width = 14
-            center = (self.device.width / 2.0, 110)
-            top_left = (center[0] - width / 2.0, center[1] - width / 2.0)
-            bottom_left = (center[0] - width / 2.0, center[1] + width / 2.0)
-            middle_right = (center[0] + width / 2.0, center[1])
-            poly_cords = [top_left, bottom_left, middle_right]
-            fill = "white"
-            draw.polygon(poly_cords, fill=fill)
-
-    def show_playing(self):
-        track_name =  "All These Things That I've Done"
-        track_number = "5"
-        track_total = "13"
-        track_artist = "The Killers"
-        track_album = "Hot Fuss"
-        progress = 0.67
-        time_now = "3:27"
-        time_remaining = "-1:10"
-
-        with canvas(self.device) as draw:
-            self._track_number(draw, track_number, track_total)
-            self._track_name(draw, track_name)
-            self._track_artist(draw, track_artist)
-            self._track_album(draw, track_album)
-            self._track_name(draw, track_name)
-            self._track_progress(draw, progress, time_now, time_remaining)
-            self._track_status(draw, "PAUSE")
-
-    def show_volume(self):
-        width = 5
-
-        with canvas(self.device) as draw:
-            # -- Volume text
-            x = 38
-            y = 40
-            text = "Volume"
-            fill = "white"
-            font_size = 15
-            font = ImageFont.truetype(self.font_path, font_size)
-            draw.text((x, y), text, fill=fill, font=font)
-
-            # -- Volume boxes
-            for i in range(0, 20, 2):
-                top_left = (15 + (width * i), 70)
-                bottom_right = (15 + (width * (i + 1)), 80)
-                rect_cord = [top_left, bottom_right]
-                fill = "black"
-                outline = "white"
-                draw.rectangle(rect_cord, outline=outline, fill=fill)
-
-
 class Song:
     def __init__(self, file_path):
         self.file_path = file_path
 
         self.track_number = None
         self.track_name = None
+        self.length = None
         self.artist = None
         self.album = None
         self.date = None
+
+        if file_ext(file_path) == ".mp3":
+            self.length = mutagen.mp3.MP3(file_path).info.length
+        if file_ext(file_path) == ".flac":
+            self.length = mutagen.flac.FLAC(file_path).info.length
 
         tags = mutagen.File(self.file_path)
         if tags.get("tracknumber"):
@@ -290,7 +137,7 @@ class MusicLibrary:
     def get_next_song(self):
         self.song_index += 1
 
-        if self.song_index > len(self.queue):
+        if self.song_index >= len(self.queue):
             self.song_index = 0
         elif self.song_index < 0:
             self.song_index = len(self.queue) - 1
@@ -308,9 +155,211 @@ class MusicLibrary:
         return self.queue[self.song_index]
 
 
+class Display:
+    def __init__(self):
+        serial = spi(device=0, port=0)
+        self.device = ssd1351(serial)
+        self.font_path = "/usr/share/fonts/truetype/msttcorefonts/verdana.ttf"
+        self.font_size = 10
+        self.font = ImageFont.truetype(self.font_path, self.font_size)
+
+    def show_menu(self, songs, index):
+        with canvas(self.device) as draw:
+            height_step = (self.device.height / 10)
+            height_padding = 0
+            width_padding = 2
+
+            song_list = list(songs)
+            song_index = ((index + 1) % 10) - 1
+            if index > 9:
+                start = ((index + 1) % 10) + 10
+                end = start + 10
+                song_list = song_list[start:end]
+
+            for i in range(10):
+                # Selected
+                top_left = (0, height_step * i)
+                bottom_right = (self.device.width, height_step * (i + 1))
+                rect_cord = [top_left, bottom_right]
+                fill = "white" if i == song_index else "black"
+                draw.rectangle(rect_cord, fill=fill)
+
+                # Text
+                x = width_padding
+                y = (height_step * i) + height_padding
+                text = "%s" % song_list[i]
+                fill = "black" if i == song_index else "white"
+                draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_number(self, draw, track_number, track_total):
+        # Track number
+        x = 5
+        y = 10
+        text = "[%s / %s]" % (track_number, track_total)
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_name(self, draw, track_name):
+        x = 5
+        y = 26
+        text = track_name
+        fill = "white"
+        font_size = 11
+        font = ImageFont.truetype(self.font_path, font_size)
+        draw.text((x, y), text, fill=fill, font=font)
+
+        top_left = (0, y)
+        bottom_right = (x - 2, y + 13)
+        rect_cord = [top_left, bottom_right]
+        fill = "black"
+        draw.rectangle(rect_cord, fill=fill)
+
+    def _track_artist(self, draw, track_artist):
+        x = 5
+        y = 45
+        text = track_artist
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_album(self, draw, track_album):
+        x = 5
+        y = 60
+        text = track_album
+        fill = "white"
+        draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_progress(self, draw, track_progress, track_time, track_remaining):
+        # Track progress
+        # -- Progress outline
+        top_left = (10, 80)
+        bottom_right = (self.device.width - 10, top_left[1] + 10)
+        rect_cord = [top_left, bottom_right]
+        draw.rectangle(rect_cord, outline="white", fill="black")
+        # -- Progress bar
+        bottom_right_x = max(top_left[0], ((self.device.width - 10) * track_progress))
+        bottom_right = (bottom_right_x, top_left[1] + 10)
+        rect_cord = [top_left, bottom_right]
+        draw.rectangle(rect_cord, fill="white")
+        ## -- Current track time
+        #x = top_left[0]
+        #y = bottom_right[1] + 5
+        #text = track_time
+        #fill = "white"
+        #draw.text((x, y), text, fill=fill, font=self.font)
+        ## -- Remaining track time
+        #x = self.device.width - 32
+        #y = bottom_right[1] + 5
+        #text = track_remaining
+        #fill = "white"
+        #draw.text((x, y), text, fill=fill, font=self.font)
+
+    def _track_status(self, draw, status):
+        if status == "PAUSE":
+            # Pause box
+            width = 14
+            center = (self.device.width / 2.0, 110)
+            top_left = (center[0] - width / 2.0, center[1] - width / 2.0)
+            bottom_right = (center[0] + width / 2.0, center[1] + width / 2.0)
+            rect_cord = [top_left, bottom_right]
+            fill = "white"
+            draw.rectangle(rect_cord, fill=fill)
+
+            # Pause split
+            height = 14
+            width = 4
+            center = (self.device.width / 2.0, 110)
+            top_left = (center[0] - width / 2.0, center[1] - height / 2.0)
+            bottom_right = (center[0] + width / 2.0, center[1] + height / 2.0)
+            rect_cord = [top_left, bottom_right]
+            fill = "black"
+            draw.rectangle(rect_cord, fill=fill)
+
+        elif status == "PLAY":
+            width = 14
+            center = (self.device.width / 2.0, 110)
+            top_left = (center[0] - width / 2.0, center[1] - width / 2.0)
+            bottom_left = (center[0] - width / 2.0, center[1] + width / 2.0)
+            middle_right = (center[0] + width / 2.0, center[1])
+            poly_cords = [top_left, bottom_left, middle_right]
+            fill = "white"
+            draw.polygon(poly_cords, fill=fill)
+
+    def show_playing(self, song, song_time, status):
+        track_name = song.track_name
+        track_artist = song.artist
+        track_album = song.album
+        song_length = song.length
+        progress = (song_time * 1e-3) / song_length
+        progress = 0.0 if progress < 0.0 else progress
+        progress = 1.0 if progress > 1.0 else progress
+        time_now = "1:10"
+        time_remaining = "-1:10"
+
+        with canvas(self.device) as draw:
+            #self._track_number(draw, track_number, track_total)
+            self._track_name(draw, track_name)
+            self._track_artist(draw, track_artist)
+            self._track_album(draw, track_album)
+            self._track_name(draw, track_name)
+            self._track_progress(draw, progress, time_now, time_remaining)
+            self._track_status(draw, status)
+
+    def show_volume(self, percentage):
+        width = 5
+        with canvas(self.device) as draw:
+            # -- Volume text
+            x = 38
+            y = 40
+            text = "Volume"
+            fill = "white"
+            font_size = 15
+            font = ImageFont.truetype(self.font_path, font_size)
+            draw.text((x, y), text, fill=fill, font=font)
+
+            # -- Volume empty boxes
+            for i in range(0, 20, 2):
+                top_left = (15 + (width * i), 70)
+                bottom_right = (15 + (width * (i + 1)), 80)
+                rect_cord = [top_left, bottom_right]
+                fill = "black"
+                outline = "white"
+                draw.rectangle(rect_cord, outline=outline, fill=fill)
+
+            # -- Volume full boxes
+            for i in range(0, int(20 * percentage), 2):
+                top_left = (15 + (width * i), 70)
+                bottom_right = (15 + (width * (i + 1)), 80)
+                rect_cord = [top_left, bottom_right]
+                fill = "white"
+                outline = "white"
+                draw.rectangle(rect_cord, outline=outline, fill=fill)
+
+    def show_hold(self, status):
+        # -- Hold text
+        with canvas(self.device) as draw:
+            x = 20 
+            y = 60
+            text = "HOLD is ON" if status else "HOLD is OFF"
+            fill = "white"
+            font_size = 15
+            font = ImageFont.truetype(self.font_path, font_size)
+            draw.text((x, y), text, fill=fill, font=font)
+
+    def show_power(self, status):
+        # -- Hold text
+        with canvas(self.device) as draw:
+            x = 7
+            y = 60
+            text = "POWERING ON" if status else "POWERING OFF"
+            fill = "white"
+            font_size = 15
+            font = ImageFont.truetype(self.font_path, font_size)
+            draw.text((x, y), text, fill=fill, font=font)
+
+
 def song_thread(args):
     thread = threading.currentThread()
-    song_path, song_time = args
+    song_path, song_time, display, callback = args
 
     player = vlc.MediaPlayer(song_path)
     player.play()                  # Initialize player
@@ -319,13 +368,24 @@ def song_thread(args):
     player.play()                  # Continue playing
     player.audio_set_volume(getattr(thread, "volume"))
 
-    # Keep thread alive
-    while player.is_playing and getattr(thread, "keep_running", True):
-        player.audio_set_volume(getattr(thread, "volume"))
-        song_time[0] = player.get_time()
+    ## Keep thread alive
+    #while player.is_playing and getattr(thread, "keep_running"):
+    #    player.audio_set_volume(getattr(thread, "volume"))
+    #    song_time[0] = player.get_time()
+    #    # -- its weird player.get_time() does not immediately return the 
+    #    # the correct time, therefore must check if larger than 0.
+    #    if song_time[0] > 0:
+    #        display.show_playing(Song(song_path), song_time[0], "PLAY")
 
-    # Stop
+    #    # song_time never actually reaches the end of the song
+    #    song_length = Song(song_path).length
+    #    if (song_length - (song_time[0] * 1e-3)) < 0.2:
+    #        break
+
+    # Clean up
+    time.sleep(1)
     player.stop()
+    callback()
 
 
 class ZP3:
@@ -339,9 +399,11 @@ class ZP3:
         self.volume_max = 100
         self.volume_min = 0
         self.volume_step = 10
+        self.menu_index = 0
 
         self.thread = None
         self.music = MusicLibrary(music_dir)
+        self.songs = [Song(s).track_name for s in self.music.queue]
         self.display = Display()
 
         self.btn_up = gpio.Button(5)
@@ -350,6 +412,35 @@ class ZP3:
         self.btn_right = gpio.Button(19)
         self.btn_enter = gpio.Button(26)
 
+        self.menu_mode()
+
+    def _no_op(self):
+        return
+
+    def _keep_menu_index_within_bounds(self):
+        if self.menu_index < 0:
+            self.menu_index = 0
+        elif self.menu_index >= len(self.music.queue):
+            self.menu_index = len(self.music.queue)
+
+    def menu_up(self):
+        print("UP")
+        self.menu_index -= 1
+        self._keep_menu_index_within_bounds()
+        self.display.show_menu(self.songs, self.menu_index)
+
+    def menu_down(self):
+        print("DOWN")
+        self.menu_index += 1
+        self._keep_menu_index_within_bounds()
+        self.display.show_menu(self.songs, self.menu_index)
+
+    def menu_mode(self):
+        self.btn_up.when_pressed = self.menu_up
+        self.btn_down.when_pressed = self.menu_down
+        self.display.show_menu(self.songs, self.menu_index)
+
+    def player_mode(self):
         self.btn_up.when_pressed = self.menu
         self.btn_down.when_pressed = self.play
         self.btn_left.when_pressed = self.prev
@@ -359,8 +450,8 @@ class ZP3:
         if self.hold_mode:
             return
 
-        self.music.get_prev_song()
         self._stop()
+        self.music.get_prev_song()
         self.play()
 
     def menu(self):
@@ -379,8 +470,11 @@ class ZP3:
                 print("Resuming: [%s] at [%.2fs]" % (song_name, song_time))
             else:
                 print("Playing: [%s]" % os.path.basename(song_path))
-            args = [song_path, self.song_time]
+            
+            self.display.show_playing(Song(song_path), self.song_time[0], "PLAY")
+            args = [song_path, self.song_time, self.display, self.next]
             self.thread = threading.Thread(target=song_thread, args=(args,))
+            self.thread.daemon = True
             self.thread.keep_running = True
             self.thread.volume = self.volume_level
             self.thread.start()
@@ -388,6 +482,8 @@ class ZP3:
 
         elif self.is_playing is True:
             print("Pausing at [%.2fs]" % (self.song_time[0] * 1e-3))
+            song_path = self.music.get_song()
+            self.display.show_playing(Song(song_path), self.song_time[0], "PAUSE")
             self.thread.keep_running = False
             self.thread.volume = self.volume_level
             self.thread.join()
@@ -397,17 +493,16 @@ class ZP3:
     def _stop(self):
         if self.thread is not None:
             self.thread.keep_running = False
-            self.thread.join()
-            self.thread = None
-            self.is_playing = False
-            self.song_time = [0]
+        self.thread = None
+        self.is_playing = False
+        self.song_time = [0]
 
     def next(self):
         if self.hold_mode:
             return
 
-        self.music.get_next_song()
         self._stop()
+        self.music.get_next_song()
         self.play()
 
     def _keep_volumn_within_bounds(self):
@@ -478,20 +573,37 @@ class TestButtons(unittest.TestCase):
 
 
 class TestDisplay(unittest.TestCase):
-    def test_show_menu(self):
-        display = Display()
-        display.show_menu()
-        time.sleep(5)
+    # def test_show_menu(self):
+    #     display = Display()
+    #     display.show_menu()
+    #     time.sleep(5)
 
     def test_show_playing(self):
+        song_path = "/home/pi/music/The Killers - Hot Fuss (2004)/01 - Jenny Was A Friend Of Mine.flac"
+        song = Song(song_path)
+
         display = Display()
-        display.show_playing()
+        display.show_playing(song, 120, "PLAY")
         time.sleep(5)
 
-    def test_show_volume(self):
-        display = Display()
-        display.show_volume()
-        time.sleep(5)
+    # def test_show_volume(self):
+    #     display = Display()
+    #     display.show_volume(0.4)
+    #     time.sleep(5)
+
+    # def test_show_hold(self):
+    #     display = Display()
+    #     display.show_hold(True)
+    #     time.sleep(5)
+    #     display.show_hold(False)
+    #     time.sleep(5)
+
+    # def test_show_power(self):
+    #     display = Display()
+    #     display.show_power(True)
+    #     time.sleep(5)
+    #     display.show_power(False)
+    #     time.sleep(5)
 
 
 class TestSong(unittest.TestCase):
@@ -624,5 +736,6 @@ class TestZP3(unittest.TestCase):
     #     self.zp3._stop()
 
     def test_loop(self):
+        print("running")
         import signal
         signal.pause()

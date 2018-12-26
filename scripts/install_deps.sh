@@ -14,4 +14,4 @@ echo "Installing libtag ..." && $APT_INSTALL libtag1-dev
 echo "Installing python-vlc ..." && $PIP_INSTALL python-vlc
 echo "Installing click ..." && $PIP_INSTALL click
 echo "Installing gpiozero ..." && $PIP_INSTALL gpiozero
-echo "Installing pytaglib ..." && $PIP_INSTALL pytaglib
+echo "Installing mutagen ..." && $PIP_INSTALL mutagen
