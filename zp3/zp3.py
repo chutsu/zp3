@@ -234,7 +234,8 @@ class Display:
         rect_cord = [top_left, bottom_right]
         draw.rectangle(rect_cord, outline="white", fill="black")
         # -- Progress bar
-        bottom_right_x = max(top_left[0], ((self.device.width - 10) * track_progress))
+        progress_bar_width = (self.device.width - 10) - 10
+        bottom_right_x = 10 + (progress_bar_width * track_progress)
         bottom_right = (bottom_right_x, top_left[1] + 10)
         rect_cord = [top_left, bottom_right]
         draw.rectangle(rect_cord, fill="white")
@@ -366,24 +367,37 @@ def song_thread(args):
     player.play()                  # Continue playing
     player.audio_set_volume(getattr(thread, "volume"))
 
-    ## Keep thread alive
-    #while player.is_playing and getattr(thread, "keep_running"):
-    #    player.audio_set_volume(getattr(thread, "volume"))
-    #    song_time[0] = player.get_time()
-    #    # -- its weird player.get_time() does not immediately return the 
-    #    # the correct time, therefore must check if larger than 0.
-    #    if song_time[0] > 0:
-    #        display.show_playing(Song(song_path), song_time[0], "PLAY")
+    # Keep thread alive
+    song_finished = False
+    while player.is_playing:
+        # Update volume
+        player.audio_set_volume(getattr(thread, "volume"))
 
-    #    # song_time never actually reaches the end of the song
-    #    song_length = Song(song_path).length
-    #    if (song_length - (song_time[0] * 1e-3)) < 0.2:
-    #        break
+        # Song time is weird. player.get_time() does not immediately return the
+        # the correct time, therefore must check if larger than 0.
+        if player.get_time() > 0:
+            song_time[0] = player.get_time()
+            if getattr(thread, "is_menu_mode") is False:
+                display.show_playing(Song(song_path), song_time[0], "PLAY")
+
+        # Song_time never actually reaches the end of the song
+        # so we have to hack it a little bit.
+        song_length = Song(song_path).length
+        if (song_length - (song_time[0] * 1e-3)) < 0.2:
+            song_finished = True
+            break
+
+        # Check if we should still playing
+        if getattr(thread, "keep_running") is False and getattr(thread, "is_menu_mode") is False:
+            display.show_playing(Song(song_path), song_time[0], "PAUSE")
+            break
+
 
     # Clean up
     time.sleep(1)
     player.stop()
-    callback()
+    if song_finished:
+        callback()
 
 
 class ZP3:
@@ -408,12 +422,33 @@ class ZP3:
         self.btn_down = gpio.Button(6)
         self.btn_left = gpio.Button(13)
         self.btn_right = gpio.Button(19)
-        self.btn_enter = gpio.Button(26)
+        self.btn_hold = gpio.Button(26, hold_time=3.0)
 
+        self.is_menu_mode = False
         self.menu_mode()
 
-    def _no_op(self):
-        return
+    def menu_mode(self):
+        self.is_menu_mode = True
+        if self.thread:
+            self.thread.is_menu_mode = True 
+
+        self.btn_up.when_pressed = self.menu_up
+        self.btn_down.when_pressed = self.menu_down
+        self.btn_left.when_pressed = None
+        self.btn_right.when_pressed = self.menu_enter
+        self.btn_hold.when_held = self.menu_hold
+        self.display.show_menu(self.songs, self.menu_index)
+
+    def player_mode(self):
+        self.is_menu_mode = False
+        if self.thread:
+            self.thread.is_menu_mode = False
+
+        self.btn_up.when_pressed = self.prev
+        self.btn_down.when_pressed = self.next
+        self.btn_left.when_pressed = self.menu
+        self.btn_right.when_pressed = self.play
+        self.btn_hold.when_held = self.hold
 
     def _keep_menu_index_within_bounds(self):
         if self.menu_index < 0:
@@ -421,41 +456,41 @@ class ZP3:
         elif (self.menu_index + 1) >= len(self.songs):
             self.menu_index = len(self.songs) - 1
 
+    def menu_hold(self):
+        self.hold_mode = False if self.hold_mode else True
+        self.display.show_hold(self.hold_mode)
+        time.sleep(1)
+        self.display.show_menu(self.songs, self.menu_index)
+
     def menu_up(self):
-        print("UP")
+        if self.hold_mode:
+            return
+
         self.menu_index -= 1
         self._keep_menu_index_within_bounds()
         self.display.show_menu(self.songs, self.menu_index)
 
     def menu_down(self):
-        print("DOWN")
-        self.menu_index += 1
-        self._keep_menu_index_within_bounds()
-        print("menu_index: ", self.menu_index)
-        self.display.show_menu(self.songs, self.menu_index)
-
-    def menu_mode(self):
-        self.btn_up.when_pressed = self.menu_up
-        self.btn_down.when_pressed = self.menu_down
-        self.display.show_menu(self.songs, self.menu_index)
-
-    def player_mode(self):
-        self.btn_up.when_pressed = self.menu
-        self.btn_down.when_pressed = self.play
-        self.btn_left.when_pressed = self.prev
-        self.btn_right.when_pressed = self.next
-
-    def prev(self):
         if self.hold_mode:
             return
 
+        self.menu_index += 1
+        self._keep_menu_index_within_bounds()
+        self.display.show_menu(self.songs, self.menu_index)
+
+    def menu_enter(self):
+        if self.hold_mode:
+            return
+
+        self.music.song_index = self.menu_index
+        self.player_mode()
         self._stop()
-        self.music.get_prev_song()
         self.play()
 
     def menu(self):
         if self.hold_mode:
             return
+        self.menu_mode()
 
     def play(self):
         if self.hold_mode:
@@ -475,6 +510,7 @@ class ZP3:
             self.thread = threading.Thread(target=song_thread, args=(args,))
             self.thread.daemon = True
             self.thread.keep_running = True
+            self.thread.is_menu_mode = self.is_menu_mode
             self.thread.volume = self.volume_level
             self.thread.start()
             self.is_playing = True
@@ -482,19 +518,29 @@ class ZP3:
         elif self.is_playing is True:
             print("Pausing at [%.2fs]" % (self.song_time[0] * 1e-3))
             song_path = self.music.get_song()
-            self.display.show_playing(Song(song_path), self.song_time[0], "PAUSE")
             self.thread.keep_running = False
             self.thread.volume = self.volume_level
             self.thread.join()
             self.thread = None
             self.is_playing = False
+            self.display.show_playing(Song(song_path), self.song_time[0], "PAUSE")
 
     def _stop(self):
         if self.thread is not None:
             self.thread.keep_running = False
+            self.thread.join()
+
         self.thread = None
         self.is_playing = False
         self.song_time = [0]
+
+    def prev(self):
+        if self.hold_mode:
+            return
+
+        self._stop()
+        self.music.get_prev_song()
+        self.play()
 
     def next(self):
         if self.hold_mode:
@@ -503,6 +549,14 @@ class ZP3:
         self._stop()
         self.music.get_next_song()
         self.play()
+
+    def hold(self):
+        self.hold_mode = False if self.hold_mode else True
+        self.display.show_hold(self.hold_mode)
+        time.sleep(1)
+        song_path = self.music.get_song()
+        status = "PLAY" if self.is_playing else "PAUSE"
+        self.display.show_playing(Song(song_path), self.song_time[0], status)
 
     def _keep_volumn_within_bounds(self):
         if self.volume_level > self.volume_max:
@@ -525,9 +579,6 @@ class ZP3:
         self._keep_volumn_within_bounds()
         self.thread.volume = self.volume_level
         print("Volume decreased to [%d]" % self.volume_level)
-
-    def hold(self):
-        self.hold_mode = True if self.hold_mode is False else False
 
     def power_off(self):
         subprocess.call(['shutdown', '-h', 'now'], shell=False)
