@@ -365,33 +365,36 @@ def song_thread(args):
     player.pause()                 # Pause so that we can set time
     player.set_time(song_time[0])  # Set the time
     player.play()                  # Continue playing
-    player.audio_set_volume(getattr(thread, "volume"))
+    player.audio_set_volume(int(getattr(thread, "volume")))
 
     # Keep thread alive
     song_finished = False
     while player.is_playing:
+        volume = int(getattr(thread, "volume"))
+        keep_running = getattr(thread, "keep_running")
+        is_player_mode = getattr(thread, "is_player_mode")
+
         # Update volume
-        player.audio_set_volume(getattr(thread, "volume"))
+        player.audio_set_volume(volume)
 
         # Song time is weird. player.get_time() does not immediately return the
         # the correct time, therefore must check if larger than 0.
         if player.get_time() > 0:
             song_time[0] = player.get_time()
-            if getattr(thread, "is_menu_mode") is False:
+            if is_player_mode:
                 display.show_playing(Song(song_path), song_time[0], "PLAY")
 
         # Song_time never actually reaches the end of the song
         # so we have to hack it a little bit.
         song_length = Song(song_path).length
-        if (song_length - (song_time[0] * 1e-3)) < 0.2:
+        if (song_length - (song_time[0] * 1e-3)) < 0.3:
             song_finished = True
             break
 
         # Check if we should still playing
-        if getattr(thread, "keep_running") is False and getattr(thread, "is_menu_mode") is False:
+        if keep_running is False and is_player_mode:
             display.show_playing(Song(song_path), song_time[0], "PAUSE")
             break
-
 
     # Clean up
     time.sleep(1)
@@ -407,10 +410,10 @@ class ZP3:
 
         self.is_playing = False
         self.song_time = [0]  # List because it has to be mutable for threads
-        self.volume_level = 50
-        self.volume_max = 100
-        self.volume_min = 0
-        self.volume_step = 10
+        self.volume_level = 50.0
+        self.volume_max = 100.0
+        self.volume_min = 0.0
+        self.volume_step = 10.0
         self.menu_index = 0
 
         self.thread = None
@@ -423,32 +426,38 @@ class ZP3:
         self.btn_left = gpio.Button(13)
         self.btn_right = gpio.Button(19)
         self.btn_hold = gpio.Button(26, hold_time=3.0)
+        self.btn_vol_up = gpio.Button(2, bounce_time=1)
+        self.btn_vol_down = gpio.Button(4, bounce_time=1)
 
-        self.is_menu_mode = False
+        self.is_player_mode = False
         self.menu_mode()
 
     def menu_mode(self):
-        self.is_menu_mode = True
+        self.is_player_mode = False
         if self.thread:
-            self.thread.is_menu_mode = True 
+            self.thread.is_player_mode = self.is_player_mode
 
         self.btn_up.when_pressed = self.menu_up
         self.btn_down.when_pressed = self.menu_down
         self.btn_left.when_pressed = None
         self.btn_right.when_pressed = self.menu_enter
         self.btn_hold.when_held = self.menu_hold
+        self.btn_vol_up.when_pressed = None
+        self.btn_vol_down.when_pressed = None
         self.display.show_menu(self.songs, self.menu_index)
 
     def player_mode(self):
-        self.is_menu_mode = False
+        self.is_player_mode = True
         if self.thread:
-            self.thread.is_menu_mode = False
+            self.thread.is_player_mode = self.is_player_mode
 
         self.btn_up.when_pressed = self.prev
         self.btn_down.when_pressed = self.next
         self.btn_left.when_pressed = self.menu
         self.btn_right.when_pressed = self.play
         self.btn_hold.when_held = self.hold
+        self.btn_vol_up.when_pressed = self.volume_mode
+        self.btn_vol_down.when_pressed = self.volume_mode
 
     def _keep_menu_index_within_bounds(self):
         if self.menu_index < 0:
@@ -490,6 +499,7 @@ class ZP3:
     def menu(self):
         if self.hold_mode:
             return
+        self._stop()
         self.menu_mode()
 
     def play(self):
@@ -505,12 +515,11 @@ class ZP3:
             else:
                 print("Playing: [%s]" % os.path.basename(song_path))
             
-            self.display.show_playing(Song(song_path), self.song_time[0], "PLAY")
             args = [song_path, self.song_time, self.display, self.next]
             self.thread = threading.Thread(target=song_thread, args=(args,))
             self.thread.daemon = True
             self.thread.keep_running = True
-            self.thread.is_menu_mode = self.is_menu_mode
+            self.thread.is_player_mode = self.is_player_mode
             self.thread.volume = self.volume_level
             self.thread.start()
             self.is_playing = True
@@ -528,7 +537,7 @@ class ZP3:
     def _stop(self):
         if self.thread is not None:
             self.thread.keep_running = False
-            self.thread.join()
+            #self.thread.join()
 
         self.thread = None
         self.is_playing = False
@@ -565,20 +574,49 @@ class ZP3:
             self.volume_level = self.volume_min
 
     def volume_up(self):
-        if self.hold_mode:
-            return
         self.volume_level += self.volume_step
         self._keep_volumn_within_bounds()
-        self.thread.volume = self.volume_level
         print("Volume increased to [%d]" % self.volume_level)
 
     def volume_down(self):
-        if self.hold_mode:
-            return
         self.volume_level -= self.volume_step
         self._keep_volumn_within_bounds()
-        self.thread.volume = self.volume_level
         print("Volume decreased to [%d]" % self.volume_level)
+
+    def volume_mode(self):
+        if self.hold_mode:
+            return
+    
+        self.thread.is_player_mode = False
+        time.sleep(0.5)
+        #self.btn_vol_up.when_pressed = self.volume_up
+        #self.btn_vol_down.when_pressed = self.volume_down
+        self.btn_vol_up.when_pressed = None
+        self.btn_vol_down.when_pressed = None
+
+        self.display.show_volume(self.volume_level / self.volume_max)
+        time_start = time.time()
+        while True:
+            if self.btn_vol_up.is_pressed:
+                self.volume_level += self.volume_step
+                self._keep_volumn_within_bounds()
+                print("Volume increased to [%d]" % self.volume_level)
+                time_start = time.time()
+            elif self.btn_vol_down.is_pressed:
+                self.volume_level -= self.volume_step
+                print("Volume decreased to [%d]" % self.volume_level)
+                time_start = time.time()
+            elif (time.time() - time_start) > 3.0:
+                break
+            time.sleep(0.05)
+
+            self.thread.volume = self.volume_level
+            self._keep_volumn_within_bounds()
+            self.display.show_volume(self.volume_level / self.volume_max)
+
+        self.thread.is_player_mode = True
+        self.btn_vol_up.when_pressed = self.volume_mode
+        self.btn_vol_down.when_pressed = self.volume_mode
 
     def power_off(self):
         subprocess.call(['shutdown', '-h', 'now'], shell=False)
@@ -623,10 +661,12 @@ class TestButtons(unittest.TestCase):
 
 
 class TestDisplay(unittest.TestCase):
-    # def test_show_menu(self):
-    #     display = Display()
-    #     display.show_menu()
-    #     time.sleep(5)
+    def test_show_menu(self):
+        display = Display()
+        songs = range(10)
+        menu_index = 5
+        display.show_menu(songs, menu_index)
+        time.sleep(5)
 
     def test_show_playing(self):
         song_path = "/home/pi/music/The Killers - Hot Fuss (2004)/01 - Jenny Was A Friend Of Mine.flac"
@@ -636,24 +676,24 @@ class TestDisplay(unittest.TestCase):
         display.show_playing(song, 120, "PLAY")
         time.sleep(5)
 
-    # def test_show_volume(self):
-    #     display = Display()
-    #     display.show_volume(0.4)
-    #     time.sleep(5)
+    def test_show_volume(self):
+        display = Display()
+        display.show_volume(0.4)
+        time.sleep(5)
 
-    # def test_show_hold(self):
-    #     display = Display()
-    #     display.show_hold(True)
-    #     time.sleep(5)
-    #     display.show_hold(False)
-    #     time.sleep(5)
+    def test_show_hold(self):
+        display = Display()
+        display.show_hold(True)
+        time.sleep(5)
+        display.show_hold(False)
+        time.sleep(5)
 
-    # def test_show_power(self):
-    #     display = Display()
-    #     display.show_power(True)
-    #     time.sleep(5)
-    #     display.show_power(False)
-    #     time.sleep(5)
+    def test_show_power(self):
+        display = Display()
+        display.show_power(True)
+        time.sleep(5)
+        display.show_power(False)
+        time.sleep(5)
 
 
 class TestSong(unittest.TestCase):
