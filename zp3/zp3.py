@@ -165,13 +165,25 @@ class Display:
 
         self.track_scroll_counter = 0
         self.track_scroll_pause = 0
-        self.menu_item_scroll_counter = 0
         self.track_pause_threshold = 50
+        self.menu_item_scroll_counter = 0
+        self.menu_item_scroll_pause = 0
 
     def reset_counters(self):
         self.track_scroll_counter = 0
         self.track_scroll_pause = 0
         self.menu_item_scroll_counter = 0
+        self.menu_item_scroll_pause = 0
+
+    def show_loading(self):
+        with canvas(self.device) as draw:
+            x = 20
+            y = 60
+            text = "LOADING ..."
+            fill = "white"
+            font_size = 15
+            font = ImageFont.truetype(self.font_path, font_size)
+            draw.text((x, y), text, fill=fill, font=font)
 
     def show_menu(self, songs, index):
         with canvas(self.device) as draw:
@@ -193,19 +205,22 @@ class Display:
                 draw.rectangle(rect_cord, fill=fill)
 
                 # Text
-                x = width_padding
+                x = width_padding - self.menu_item_scroll_counter
                 y = (height_step * i) + height_padding
                 text = "%s" % song_list[i]
                 fill = "black" if i == song_index else "white"
-
-                if i == song_index and len(text) > 17:
-                    x -= self.menu_item_scroll_counter
-                    self.menu_item_scroll_counter += 1
-                    end = (len(text) * 7) - self.menu_item_scroll_counter
-                    if end < 0:
-                        self.menu_item_scroll_counter = 0
-
                 draw.text((x, y), text, fill=fill, font=self.font)
+
+                # Update scroll
+                if i == song_index and len(text) > 17:
+                    if self.menu_item_scroll_pause < 15:
+                        self.menu_item_scroll_pause += 1
+                    else:
+                        self.menu_item_scroll_counter += 5
+                        end = (len(text) * 7) - self.menu_item_scroll_counter
+                        if end < 0:
+                            self.menu_item_scroll_counter = 0
+                            self.menu_item_scroll_pause = 0
 
     def _track_name(self, draw, track_name):
         x = 5 - self.track_scroll_counter
@@ -230,7 +245,7 @@ class Display:
         fill = "white"
         draw.text((x, y), text, fill=fill, font=self.font)
 
-    def _track_progress(self, draw, track_progress, track_time, track_remaining):
+    def _track_progress(self, draw, track_progress):
         # Track progress
         # -- Progress outline
         top_left = (10, 80)
@@ -283,15 +298,13 @@ class Display:
         progress = (song_time * 1e-3) / song_length
         progress = 0.0 if progress < 0.0 else progress
         progress = 1.0 if progress > 1.0 else progress
-        time_now = "1:10"
-        time_remaining = "-1:10"
 
         max_len = max(len(track_name), len(track_artist), len(track_album))
         if max_len > 18:
             if self.track_scroll_pause < self.track_pause_threshold: 
                 self.track_scroll_pause += 1
             else:
-                self.track_scroll_counter += 5
+                self.track_scroll_counter += 6
                 end = (max_len * 7) - self.track_scroll_counter
                 if end < 0:
                     self.track_scroll_pause = 0
@@ -301,7 +314,7 @@ class Display:
             self._track_artist(draw, track_artist)
             self._track_album(draw, track_album)
             self._track_name(draw, track_name)
-            self._track_progress(draw, progress, time_now, time_remaining)
+            self._track_progress(draw, progress)
             self._track_status(draw, status)
 
     def show_volume(self, percentage):
@@ -334,19 +347,7 @@ class Display:
                 outline = "white"
                 draw.rectangle(rect_cord, outline=outline, fill=fill)
 
-    def show_hold(self, status):
-        # -- Hold text
-        with canvas(self.device) as draw:
-            x = 20 
-            y = 60
-            text = "HOLD is ON" if status else "HOLD is OFF"
-            fill = "white"
-            font_size = 15
-            font = ImageFont.truetype(self.font_path, font_size)
-            draw.text((x, y), text, fill=fill, font=font)
-
     def show_power(self, status):
-        # -- Hold text
         with canvas(self.device) as draw:
             x = 7
             y = 60
@@ -426,43 +427,76 @@ class ZP3:
         self.btn_down = gpio.Button(6)
         self.btn_left = gpio.Button(13)
         self.btn_right = gpio.Button(19)
-        #self.btn_hold = gpio.Button(26, hold_time=3.0)
         self.btn_vol_up = gpio.Button(2, bounce_time=1)
         self.btn_vol_down = gpio.Button(4, bounce_time=1)
-        self.btn_pwr = gpio.Button(3, hold_time=5)
 
         self.is_player_mode = False
         self.menu_mode()
 
     def menu_mode(self):
+        # Stop player if playing
         self.is_player_mode = False
-        if self.thread:
-            self.thread.is_player_mode = self.is_player_mode
 
-        self.btn_up.when_pressed = self.menu_up
-        self.btn_down.when_pressed = self.menu_down
-        self.btn_left.when_pressed = None
-        self.btn_right.when_pressed = self.menu_enter
-        #self.btn_hold.when_held = None
-        self.btn_vol_up.when_pressed = None
-        self.btn_vol_down.when_pressed = None
-        self.btn_pwr.when_held = self.power_off
+        # Get latest song index
+        self.menu_index = self.music.song_index
+
+        # Show menu
         self.display.reset_counters()
         self.display.show_menu(self.songs, self.menu_index)
 
+        # Listen for menu events
+        while True:
+            if self.btn_up.is_pressed:
+                self.menu_index -= 1
+                self._keep_menu_index_within_bounds()
+                self.display.reset_counters()
+
+            if self.btn_down.is_pressed:
+                self.menu_index += 1
+                self._keep_menu_index_within_bounds()
+                self.display.reset_counters()
+
+            if self.btn_left.is_pressed:
+                pass
+
+            if self.btn_right.is_pressed:
+                self.music.song_index = self.menu_index
+                self.display.show_loading()
+                self.display.reset_counters()
+                self.player_mode()
+                return
+
+            self.display.show_menu(self.songs, self.menu_index)
+
     def player_mode(self):
+        # Check if we are in player mode
         self.is_player_mode = True
         if self.thread:
             self.thread.is_player_mode = self.is_player_mode
+        self.play()
 
+        # Register event handlers
         self.btn_up.when_pressed = self.prev
         self.btn_down.when_pressed = self.next
-        self.btn_left.when_pressed = self.menu
+        self.btn_left.when_pressed = None
         self.btn_right.when_pressed = self.play
-        #self.btn_hold.when_held = self.hold
         self.btn_vol_up.when_pressed = self.volume_mode
         self.btn_vol_down.when_pressed = self.volume_mode
-        self.btn_pwr.when_held = self.power_off
+
+        while self.btn_left.is_pressed is False:
+            pass
+
+        # Register event handlers
+        self.btn_up.when_pressed = None
+        self.btn_down.when_pressed = None
+        self.btn_left.when_pressed = None
+        self.btn_right.when_pressed = None
+        self.btn_vol_up.when_pressed = None
+        self.btn_vol_down.when_pressed = None
+
+        # Go to menu
+        self._stop(True)
+        self.menu_mode()
 
     def _keep_menu_index_within_bounds(self):
         if self.menu_index < 0:
@@ -470,42 +504,7 @@ class ZP3:
         elif (self.menu_index + 1) >= len(self.songs):
             self.menu_index = len(self.songs) - 1
 
-    def menu_up(self):
-        if self.hold_mode:
-            return
-
-        self.menu_index -= 1
-        self._keep_menu_index_within_bounds()
-        self.display.show_menu(self.songs, self.menu_index)
-
-    def menu_down(self):
-        if self.hold_mode:
-            return
-
-        self.menu_index += 1
-        self._keep_menu_index_within_bounds()
-        self.display.show_menu(self.songs, self.menu_index)
-
-    def menu_enter(self):
-        if self.hold_mode:
-            return
-
-        self.music.song_index = self.menu_index
-        self.display.reset_counters()
-        self.player_mode()
-        self._stop(True)
-        self.play()
-
-    def menu(self):
-        if self.hold_mode:
-            return
-        self._stop(True)
-        self.menu_mode()
-
     def play(self):
-        if self.hold_mode:
-            return
-
         song_path = self.music.get_song()
         if self.is_playing is False:
             if self.song_time[0] != 0:
@@ -545,30 +544,18 @@ class ZP3:
         self.song_time = [0]
 
     def prev(self):
-        if self.hold_mode:
-            return
-
         self._stop()
+        self.display.show_loading()
         self.music.get_prev_song()
         self.display.reset_counters()
         self.play()
 
     def next(self, wait_for_join=True):
-        if self.hold_mode:
-            return
-
         self._stop(wait_for_join)
+        self.display.show_loading()
         self.music.get_next_song()
         self.display.reset_counters()
         self.play()
-
-    def hold(self):
-        self.hold_mode = False if self.hold_mode else True
-        self.display.show_hold(self.hold_mode)
-        time.sleep(1)
-        song_path = self.music.get_song()
-        status = "PLAY" if self.is_playing else "PAUSE"
-        self.display.show_playing(Song(song_path), self.song_time[0], status)
 
     def _keep_volumn_within_bounds(self):
         if self.volume_level > self.volume_max:
@@ -587,9 +574,6 @@ class ZP3:
         print("Volume decreased to [%d]" % self.volume_level)
 
     def volume_mode(self):
-        if self.hold_mode:
-            return
-    
         self.thread.is_player_mode = False
         time.sleep(0.5)
         self.btn_vol_up.when_pressed = None
@@ -618,9 +602,6 @@ class ZP3:
         self.thread.is_player_mode = True
         self.btn_vol_up.when_pressed = self.volume_mode
         self.btn_vol_down.when_pressed = self.volume_mode
-
-    def power_off(self):
-        subprocess.call(['shutdown', '-h', 'now'], shell=False)
 
 
 #############################################################################
@@ -662,12 +643,12 @@ class TestButtons(unittest.TestCase):
 
 
 class TestDisplay(unittest.TestCase):
-    #def test_show_menu(self):
-    #    display = Display()
-    #    songs = range(10)
-    #    menu_index = 5
-    #    display.show_menu(songs, menu_index)
-    #    time.sleep(5)
+    def test_show_menu(self):
+        display = Display()
+        songs = range(10)
+        menu_index = 5
+        display.show_menu(songs, menu_index)
+        time.sleep(5)
 
     def test_show_playing(self):
         song_path = "/home/pi/music/The Killers - Hot Fuss (2004)/01 - Jenny Was A Friend Of Mine.flac"
@@ -679,24 +660,15 @@ class TestDisplay(unittest.TestCase):
             time.sleep(0.05)
         time.sleep(5)
 
-    #def test_show_volume(self):
-    #    display = Display()
-    #    display.show_volume(0.4)
-    #    time.sleep(5)
+    def test_show_loading(self):
+        display = Display()
+        display.show_loading()
+        time.sleep(5)
 
-    #def test_show_hold(self):
-    #    display = Display()
-    #    display.show_hold(True)
-    #    time.sleep(5)
-    #    display.show_hold(False)
-    #    time.sleep(5)
-
-    #def test_show_power(self):
-    #    display = Display()
-    #    display.show_power(True)
-    #    time.sleep(5)
-    #    display.show_power(False)
-    #    time.sleep(5)
+    def test_show_volume(self):
+        display = Display()
+        display.show_volume(0.4)
+        time.sleep(5)
 
 
 class TestSong(unittest.TestCase):
@@ -743,8 +715,8 @@ class TestMusicLibrary(unittest.TestCase):
 
 
 class TestZP3(unittest.TestCase):
-    def setUp(self):
-        self.zp3 = ZP3("/home/pi/music/")
+    #def setUp(self):
+    #    self.zp3 = ZP3("/home/pi/music/")
 
     # def test_play(self):
     #     # Play song
@@ -829,6 +801,7 @@ class TestZP3(unittest.TestCase):
     #     self.zp3._stop()
 
     def test_loop(self):
-        print("running")
+        zp3 = ZP3("/home/pi/music/")
+        zp3.menu_mode()
         import signal
         signal.pause()
