@@ -1,14 +1,3 @@
-#include <stdio.h>
-#include <string>
-#include <iostream>
-#include <stdlib.h>
-#include <memory.h>
-#include <unistd.h>
-#include <pthread.h>
-
-#include <ao/ao.h>
-#include <mpg123.h>
-
 #include "zp3.hpp"
 
 // ZP3 STATES
@@ -22,15 +11,18 @@
 #define PAUSE 2
 
 struct zp3_t {
+  float min_volume = 0.0f;
+  float max_volume = 1.0f;
+
   int state = MENU;
-  double volume = 0.3;
-  double min_volume = 0.0;
-  double max_volume = 1.0;
-  std::string song_path;
+  float volume = 0.3f;
 
   pthread_t player_thread_id;
+  std::string song_path;
   int player_state = STOP;
   bool player_is_dead = false;
+  float song_length = 0.0f;
+  float song_time = 0.0f;
 };
 
 struct song_t {
@@ -41,7 +33,35 @@ struct song_t {
   std::string year;
 };
 
-int zp3_parse_metadata(const std::string &song_path) {
+void walkdir(const std::string &path,
+             std::vector<std::string> &file_list,
+             const std::string &target_ext="*") {
+  DIR *dir = opendir(path.c_str());
+  if (dir == NULL) {
+    return;
+  }
+
+  struct dirent *entry;
+  while ((entry = readdir(dir)) != NULL) {
+    std::string value(entry->d_name);
+    if (value == "." || value == "..") {
+      continue;
+    }
+
+    const auto ext_len = target_ext.length();
+    const auto file_ext = value.substr(value.length() - ext_len, ext_len);
+    if (entry->d_type == DT_DIR) {
+      walkdir(path + "/" + value, file_list, target_ext);
+    } else if (target_ext == "*" || target_ext == file_ext) {
+      file_list.push_back(path + "/" + value);
+    }
+  }
+
+  closedir(dir);
+}
+
+int zp3_parse_metadata(const std::string &song_path,
+                       song_t &song) {
   // Open file
   mpg123_handle *m = mpg123_new(NULL, NULL);
   if (mpg123_open(m, song_path.c_str()) != MPG123_OK) {
@@ -66,7 +86,6 @@ int zp3_parse_metadata(const std::string &song_path) {
   }
 
   // Parse metadata
-  song_t song;
   if (v1 != NULL)  {
     song.file_path = song_path;
     song.title = std::string(v1->title);
@@ -81,10 +100,20 @@ int zp3_parse_metadata(const std::string &song_path) {
     song.year = (v2->year) ? std::string(v2->year->p) : "";
   }
 
-  std::cout << song.title << std::endl;
-  std::cout << song.artist << std::endl;
-  std::cout << song.album << std::endl;
-  std::cout << song.year << std::endl;
+  return 0;
+}
+
+int zp3_load_library(const std::string &path) {
+  std::vector<std::string> file_list;
+  walkdir(path, file_list, "mp3");
+  for (const auto &file : file_list) {
+    song_t song;
+    zp3_parse_metadata(file, song);
+    printf("title: %s\n", song.title.c_str());
+    printf("artist: %s\n", song.artist.c_str());
+    printf("album: %s\n", song.album.c_str());
+    printf("\n");
+  }
 
   return 0;
 }
@@ -122,18 +151,14 @@ void *zp3_player_thread(void *arg) {
   ao_device *dev = ao_open_live(driver, &format, NULL);
 
   // Play
-  size_t done;
   mpg123_volume(mh, zp3->volume);
-
-  printf("nb samples: %d\n", mpg123_length(mh));
-  printf("framelength: %d\n", mpg123_framelength(mh));
-  printf("samples per frame: %f\n", mpg123_spf(mh));
-  printf("seconds per frame: %f\n", mpg123_tpf(mh));
-  printf("seconds: %f\n", mpg123_framelength(mh) * mpg123_tpf(mh));
+  zp3->song_length = mpg123_framelength(mh) * mpg123_tpf(mh);
+  const size_t frame_length = mpg123_framelength(mh);
+  size_t done;
 
   while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
-    printf("sample id: %d\n", mpg123_tell(mh));
-    printf("frame id: %d\n", mpg123_tell(mh) / mpg123_spf(mh));
+    // Update song time
+    zp3->song_time = (mpg123_tell(mh) / mpg123_spf(mh)) * mpg123_tpf(mh);
 
     // Pause?
     while (zp3->player_state == PAUSE);
@@ -158,7 +183,12 @@ void *zp3_player_thread(void *arg) {
   mpg123_exit();
   ao_shutdown();
 
+  // Reset player
+  zp3->song_path = "";
+  zp3->player_state = STOP;
   zp3->player_is_dead = true;
+  zp3->song_length = 0.0f;
+  zp3->song_time = 0.0f;
 }
 
 int main(int argc, char **argv) {
@@ -166,12 +196,15 @@ int main(int argc, char **argv) {
   mpg123_init();  // Do this only once!
   zp3_t zp3;
 
-  // zp3.song_path = "/data/music/Gorillaz_-_Demon_Days_(Remaster)_(2005)_FLAC/01 - Intro.mp3";
-  // int retval = zp3_parse_metadata(zp3.song_path);
+  // zp3_load_library("/data/music");
 
-  zp3.song_path = "/data/music/great_success.mp3";
-  pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
-  pthread_join(zp3.player_thread_id, NULL);
+  song_t song;
+  zp3.song_path = "/data/music/Gorillaz_-_Demon_Days_(Remaster)_(2005)_FLAC/01 - Intro.mp3";
+  zp3_parse_metadata(zp3.song_path, song);
+
+  // zp3.song_path = "/data/music/great_success.mp3";
+  // pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
+  // pthread_join(zp3.player_thread_id, NULL);
 
   return 0;
 }

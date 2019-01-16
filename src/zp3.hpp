@@ -1,6 +1,18 @@
 #ifndef ZP3_LOG_HPP
 #define ZP3_LOG_HPP
 
+#include <memory.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <dirent.h>
+
+#include <string>
+#include <vector>
+#include <iostream>
+
+#include <ao/ao.h>
+#include <mpg123.h>
+
 #define __FILENAME__                                                           \
   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
