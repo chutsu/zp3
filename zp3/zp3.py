@@ -8,7 +8,7 @@ import vlc
 import mutagen
 import mutagen.flac
 import mutagen.mp3
-import gpiozero as gpio
+#import gpiozero as gpio
 from PIL import ImageFont
 from luma.core.interface.serial import spi
 from luma.oled.device import ssd1351
@@ -337,7 +337,7 @@ class Display:
     def show_hold(self, status):
         # -- Hold text
         with canvas(self.device) as draw:
-            x = 20 
+            x = 20
             y = 60
             text = "HOLD is ON" if status else "HOLD is OFF"
             fill = "white"
@@ -372,7 +372,7 @@ def song_thread(args):
     #while player.is_playing and getattr(thread, "keep_running"):
     #    player.audio_set_volume(getattr(thread, "volume"))
     #    song_time[0] = player.get_time()
-    #    # -- its weird player.get_time() does not immediately return the 
+    #    # -- its weird player.get_time() does not immediately return the
     #    # the correct time, therefore must check if larger than 0.
     #    if song_time[0] > 0:
     #        display.show_playing(Song(song_path), song_time[0], "PLAY")
@@ -470,7 +470,7 @@ class ZP3:
                 print("Resuming: [%s] at [%.2fs]" % (song_name, song_time))
             else:
                 print("Playing: [%s]" % os.path.basename(song_path))
-            
+
             self.display.show_playing(Song(song_path), self.song_time[0], "PLAY")
             args = [song_path, self.song_time, self.display, self.next]
             self.thread = threading.Thread(target=song_thread, args=(args,))
@@ -561,7 +561,7 @@ class TestButtons(unittest.TestCase):
         btn_left = gpio.Button(13)
         btn_right = gpio.Button(19)
         btn_enter = gpio.Button(26)
-        
+
         btn_up.when_pressed = _btn_up_handler
         btn_down.when_pressed = _btn_down_handler
         btn_left.when_pressed = _btn_left_handler
