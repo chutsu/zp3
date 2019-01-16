@@ -10,5 +10,5 @@ clean:
 	@rm -f *.o
 
 zp3: clean
-	$(CC) $(CFLAGS) -c $@.c -o $@.o
+	$(CC) $(CFLAGS) -c $@.cpp -o $@.o
 	$(CC) $(CFLAGS) $@.o -o $@ $(LIBS);

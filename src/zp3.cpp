@@ -9,9 +9,13 @@
 
 // ZP3 STATES
 #define MENU 0
-#define PLAY 1
-#define STOP 2
-#define PAUSE 3
+#define SONGS 1
+#define ARTISTS 2
+#define ALBUMS 3
+
+#define PLAY 0
+#define STOP 1
+#define PAUSE 2
 
 struct zp3_t {
   int state = MENU;
@@ -21,11 +25,13 @@ struct zp3_t {
   std::string song_path;
 
   pthread_t player_thread_id;
+  int player_state = STOP;
+  bool player_is_dead = false;
 };
 
 void *player_thread(void *arg) {
   zp3_t *zp3 = (zp3_t *) arg;
-  zp3->state = PLAY;
+  zp3->player_state = PLAY;
 
   // Initialize AO
   ao_initialize();
@@ -33,7 +39,7 @@ void *player_thread(void *arg) {
 
   // Initialize MPG123
   mpg123_init();
-  int err;
+  int err = 0;
   mpg123_handle *mh = mpg123_new(NULL, &err);
   size_t buffer_size = mpg123_outblock(mh);
   auto buffer = (unsigned char *) malloc(buffer_size * sizeof(unsigned char));
@@ -61,10 +67,10 @@ void *player_thread(void *arg) {
   mpg123_volume(mh, zp3->volume);
   while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
     // Pause?
-    while (zp3->state == PAUSE);
+    while (zp3->player_state == PAUSE);
 
     // Stop?
-    if (zp3->state == STOP) {
+    if (zp3->player_state == STOP) {
       break;
     }
 
@@ -82,6 +88,8 @@ void *player_thread(void *arg) {
   mpg123_delete(mh);
   mpg123_exit();
   ao_shutdown();
+
+  zp3->player_is_dead = true;
 }
 
 int main(int argc, char **argv) {
