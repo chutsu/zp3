@@ -9,6 +9,8 @@
 #include <ao/ao.h>
 #include <mpg123.h>
 
+#include "zp3.hpp"
+
 // ZP3 STATES
 #define MENU 0
 #define SONGS 1
@@ -31,71 +33,63 @@ struct zp3_t {
   bool player_is_dead = false;
 };
 
-void safe_print(char* name, char *data, size_t size) {
-  // char safe[31];
-  // if (size>30) return;
-  //
-  // memcpy(safe, data, size);
-  // safe[size] = 0;
-  // printf("%s: %s\n", name, safe);
-}
+struct song_t {
+  std::string file_path;
+  std::string title;
+  std::string artist;
+  std::string album;
+  std::string year;
+};
 
-void print_id3v1(mpg123_id3v1 *v1) {
-  printf("\n==== ID3v1 ====\n");
-
-  // safe_print("Title", v1->title, sizeof(v1->title));
-  // safe_print("Artist", v1->artist, sizeof(v1->artist));
-  // safe_print("Album", v1->album, sizeof(v1->album));
-  // safe_print("Year", v1->year, sizeof(v1->year));
-  // safe_print("Comment", v1->comment, sizeof(v1->comment));
-  printf("Genre: %i", v1->genre);
-}
-
-void print_lines(const char* prefix, mpg123_string *inlines) {
-  size_t i;
-  int hadcr = 0, hadlf = 0;
-  char *lines = NULL;
-  char *line = NULL;
-  size_t len = 0;
-
-  if (inlines != NULL && inlines->fill) {
-    lines = inlines->p;
-    len = inlines->fill;
+int zp3_parse_metadata(const std::string &song_path) {
+  // Open file
+  mpg123_handle *m = mpg123_new(NULL, NULL);
+  if (mpg123_open(m, song_path.c_str()) != MPG123_OK) {
+    LOG_ERROR("Failed to open file: [%s]!", song_path.c_str());
+    return -1;
   }
-  else return;
+  mpg123_scan(m);
 
-  line = lines;
-  for (i=0; i<len; ++i) {
-    if (lines[i] == '\n' || lines[i] == '\r' || lines[i] == 0) {
-      char save = lines[i];  /* saving, changing, restoring a byte in the data */
-      if (save == '\n') ++hadlf;
-      if (save == '\r') ++hadcr;
-      if ((hadcr || hadlf) && hadlf % 2 == 0 && hadcr % 2 == 0) line = (char *) "";
-
-      if (line) {
-        lines[i] = 0;
-        printf("%s%s\n", prefix, line);
-        line = NULL;
-        lines[i] = save;
-      }
-    } else {
-      hadlf = hadcr = 0;
-      if (line == NULL) line = lines+i;
-    }
+  // Check metadata
+  int meta = mpg123_meta_check(m);
+  if ((meta & MPG123_ID3) == false) {
+    LOG_ERROR("Metadata doesn't seem to be ID3!");
+    return -1;
   }
+
+  // Get metadata
+  mpg123_id3v1 *v1 = NULL;
+  mpg123_id3v2 *v2 = NULL;
+  if (mpg123_id3(m, &v1, &v2) != MPG123_OK) {
+    LOG_ERROR("Failed to parse ID3 metadata!");
+    return -1;
+  }
+
+  // Parse metadata
+  song_t song;
+  if (v1 != NULL)  {
+    song.file_path = song_path;
+    song.title = std::string(v1->title);
+    song.artist = std::string(v1->artist);
+    song.album = std::string(v1->album);
+    song.year = std::string(v1->year);
+  } else if (v2 != NULL)  {
+    song.file_path = song_path;
+    song.title = (v2->title) ? std::string(v2->title->p) : "";
+    song.artist = (v2->artist) ? std::string(v2->artist->p) : "";
+    song.album = (v2->album) ? std::string(v2->album->p) : "";
+    song.year = (v2->year) ? std::string(v2->year->p) : "";
+  }
+
+  std::cout << song.title << std::endl;
+  std::cout << song.artist << std::endl;
+  std::cout << song.album << std::endl;
+  std::cout << song.year << std::endl;
+
+  return 0;
 }
 
-void print_id3v2(mpg123_id3v2 *v2) {
-  printf("\n==== ID3v2 ====\n");
-  print_lines("Title: ", v2->title);
-  print_lines("Artist: ", v2->artist);
-  print_lines("Album: ", v2->album);
-  print_lines("Year: ", v2->year);
-  print_lines("Comment: ", v2->comment);
-  print_lines("Genre: ", v2->genre);
-}
-
-void *player_thread(void *arg) {
+void *zp3_player_thread(void *arg) {
   zp3_t *zp3 = (zp3_t *) arg;
   zp3->player_state = PLAY;
 
@@ -104,7 +98,6 @@ void *player_thread(void *arg) {
   int driver = ao_default_driver_id();
 
   // Initialize MPG123
-  mpg123_init();
   int err = 0;
   mpg123_handle *mh = mpg123_new(NULL, &err);
   size_t buffer_size = mpg123_outblock(mh);
@@ -131,7 +124,17 @@ void *player_thread(void *arg) {
   // Play
   size_t done;
   mpg123_volume(mh, zp3->volume);
+
+  printf("nb samples: %d\n", mpg123_length(mh));
+  printf("framelength: %d\n", mpg123_framelength(mh));
+  printf("samples per frame: %f\n", mpg123_spf(mh));
+  printf("seconds per frame: %f\n", mpg123_tpf(mh));
+  printf("seconds: %f\n", mpg123_framelength(mh) * mpg123_tpf(mh));
+
   while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
+    printf("sample id: %d\n", mpg123_tell(mh));
+    printf("frame id: %d\n", mpg123_tell(mh) / mpg123_spf(mh));
+
     // Pause?
     while (zp3->player_state == PAUSE);
 
@@ -159,27 +162,16 @@ void *player_thread(void *arg) {
 }
 
 int main(int argc, char **argv) {
+  // Setup
+  mpg123_init();  // Do this only once!
   zp3_t zp3;
-  zp3.song_path = "/data/music/Gorillaz_-_Demon_Days_(Remaster)_(2005)_FLAC/01 - Intro.mp3";
-  mpg123_init();
 
-  std::cout << zp3.song_path << std::endl;
-  mpg123_handle *m = mpg123_new(NULL, NULL);
-  if (mpg123_open(m, zp3.song_path.c_str()) != MPG123_OK) {
-    return -1;
-  }
-  mpg123_scan(m);
-  int meta = mpg123_meta_check(m);
+  // zp3.song_path = "/data/music/Gorillaz_-_Demon_Days_(Remaster)_(2005)_FLAC/01 - Intro.mp3";
+  // int retval = zp3_parse_metadata(zp3.song_path);
 
-  mpg123_id3v1 *v1;
-  mpg123_id3v2 *v2;
-  if (meta & MPG123_ID3 && mpg123_id3(m, &v1, &v2) == MPG123_OK) {
-    if (v1 != NULL) print_id3v1(v1);
-    if (v2 != NULL) print_id3v2(v2);
-  }
-
-  // pthread_create(&zp3.player_thread_id, NULL, player_thread, &zp3);
-  // pthread_join(zp3.player_thread_id, NULL);
+  zp3.song_path = "/data/music/great_success.mp3";
+  pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
+  pthread_join(zp3.player_thread_id, NULL);
 
   return 0;
 }
