@@ -63,6 +63,8 @@ struct zp3_t {
   // State
   int state = MENU;
   float volume = 0.3f;
+  std::string target_artist;
+  std::string target_album;
 
   // Library
   std::vector<song_t> songs;

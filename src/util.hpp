@@ -1,6 +1,7 @@
 #ifndef ZP3_UTIL_HPP
 #define ZP3_UTIL_HPP
 
+#include <assert.h>
 #include <unistd.h>
 #include <termios.h>
 
@@ -11,6 +12,13 @@ std::vector<K> extract_keys(std::map<K, V> const& input_map) {
     retval.push_back(element.first);
   }
   return retval;
+}
+
+template <typename T>
+void pop_front(std::vector<T> &vec) {
+  assert(!vec.empty());
+  vec.front() = std::move(vec.back());
+  vec.pop_back();
 }
 
 void walkdir(const std::string &path,
