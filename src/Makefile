@@ -1,6 +1,6 @@
 CC=g++
 CFLAGS=-I/usr/include
-LIBS=-lmpg123 -lao -lpthread
+LIBS=-lmpg123 -lao -ltag -lpthread
 
 all: zp3
 

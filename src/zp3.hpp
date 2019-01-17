@@ -1,5 +1,5 @@
-#ifndef ZP3_LOG_HPP
-#define ZP3_LOG_HPP
+#ifndef ZP3_HPP
+#define ZP3_HPP
 
 #include <memory.h>
 #include <unistd.h>
@@ -8,52 +8,51 @@
 
 #include <string>
 #include <vector>
+#include <set>
 #include <iostream>
+#include <algorithm>
 
 #include <ao/ao.h>
 #include <mpg123.h>
+#include <taglib/tag.h>
+#include <taglib/fileref.h>
+#include <taglib/tpropertymap.h>
 
-#define __FILENAME__                                                           \
-  (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#include "util.hpp"
+#include "log.hpp"
+#include "song.hpp"
 
-#define LOG_ERROR(M, ...)                                                      \
-  fprintf(stderr,                                                              \
-          "\033[31m[ERROR] [%s:%d] " M "\033[0m\n",                            \
-          __FILENAME__,                                                        \
-          __LINE__,                                                            \
-          ##__VA_ARGS__)
+// ZP3 STATES
+#define MENU 0
+#define SONGS 1
+#define ARTISTS 2
+#define ALBUMS 3
 
-#define LOG_INFO(M, ...) fprintf(stdout, "[INFO] " M "\n", ##__VA_ARGS__)
-#define LOG_WARN(M, ...)                                                       \
-  fprintf(stdout, "\033[33m[WARN] " M "\033[0m\n", ##__VA_ARGS__)
+#define PLAY 0
+#define STOP 1
+#define PAUSE 2
 
-#define FATAL(M, ...)                                                          \
-  fprintf(stdout,                                                              \
-          "\033[31m[FATAL] [%s:%d] " M "\033[0m\n",                            \
-          __FILENAME__,                                                        \
-          __LINE__,                                                            \
-          ##__VA_ARGS__);                                                      \
-  exit(-1)
+struct zp3_t {
+  // Settings
+  float min_volume = 0.0f;
+  float max_volume = 1.0f;
 
-#ifdef NDEBUG
-#define DEBUG(M, ...)
-#else
-#define DEBUG(M, ...) fprintf(stdout, "[DEBUG] " M "\n", ##__VA_ARGS__)
-#endif
+  // State
+  int state = MENU;
+  float volume = 0.3f;
 
-#ifndef NDEBUG
-#define ASSERT(condition, message)                                             \
-  do {                                                                         \
-    if (!(condition)) {                                                        \
-      std::cerr << "Assertion `" #condition "` failed in " << __FILE__         \
-                << " line " << __LINE__ << ": " << message << std::endl;       \
-      std::terminate();                                                        \
-    }                                                                          \
-  } while (false)
-#else
-#define ASSERT(condition, message)                                             \
-  do {                                                                         \
-  } while (false)
-#endif
+  // Library
+  std::vector<song_t> songs;
+  std::map<std::string, std::set<std::string>> artists;
+  std::map<std::string, std::vector<song_t>> albums;
 
-#endif // ZP3_LOG_HPP
+  // Player
+  pthread_t player_thread_id;
+  std::string song_path;
+  int player_state = STOP;
+  bool player_is_dead = false;
+  float song_length = 0.0f;
+  float song_time = 0.0f;
+};
+
+#endif // ZP3_HPP

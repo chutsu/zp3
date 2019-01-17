@@ -1,121 +1,82 @@
 #include "zp3.hpp"
 
-// ZP3 STATES
-#define MENU 0
-#define SONGS 1
-#define ARTISTS 2
-#define ALBUMS 3
-
-#define PLAY 0
-#define STOP 1
-#define PAUSE 2
-
-struct zp3_t {
-  float min_volume = 0.0f;
-  float max_volume = 1.0f;
-
-  int state = MENU;
-  float volume = 0.3f;
-
-  pthread_t player_thread_id;
-  std::string song_path;
-  int player_state = STOP;
-  bool player_is_dead = false;
-  float song_length = 0.0f;
-  float song_time = 0.0f;
-};
-
-struct song_t {
-  std::string file_path;
-  std::string title;
-  std::string artist;
-  std::string album;
-  std::string year;
-};
-
-void walkdir(const std::string &path,
-             std::vector<std::string> &file_list,
-             const std::string &target_ext="*") {
-  DIR *dir = opendir(path.c_str());
-  if (dir == NULL) {
-    return;
-  }
-
-  struct dirent *entry;
-  while ((entry = readdir(dir)) != NULL) {
-    std::string value(entry->d_name);
-    if (value == "." || value == "..") {
-      continue;
-    }
-
-    const auto ext_len = target_ext.length();
-    const auto file_ext = value.substr(value.length() - ext_len, ext_len);
-    if (entry->d_type == DT_DIR) {
-      walkdir(path + "/" + value, file_list, target_ext);
-    } else if (target_ext == "*" || target_ext == file_ext) {
-      file_list.push_back(path + "/" + value);
-    }
-  }
-
-  closedir(dir);
-}
-
 int zp3_parse_metadata(const std::string &song_path,
                        song_t &song) {
-  // Open file
-  mpg123_handle *m = mpg123_new(NULL, NULL);
-  if (mpg123_open(m, song_path.c_str()) != MPG123_OK) {
-    LOG_ERROR("Failed to open file: [%s]!", song_path.c_str());
-    return -1;
-  }
-  mpg123_scan(m);
+  TagLib::FileRef meta(song_path.c_str());
+  if (!meta.isNull() && meta.tag()) {
+    TagLib::Tag *tag = meta.tag();
+    song.title = tag->title().toCString();
+    song.artist = tag->artist().toCString();
+    song.album = tag->album().toCString();
+    song.year = tag->year();
+    song.track_number = tag->track();
 
-  // Check metadata
-  int meta = mpg123_meta_check(m);
-  if ((meta & MPG123_ID3) == false) {
-    LOG_ERROR("Metadata doesn't seem to be ID3!");
+    if (song.title == "" || song.artist == "") {
+      return -1;
+    }
+  } else {
     return -1;
-  }
-
-  // Get metadata
-  mpg123_id3v1 *v1 = NULL;
-  mpg123_id3v2 *v2 = NULL;
-  if (mpg123_id3(m, &v1, &v2) != MPG123_OK) {
-    LOG_ERROR("Failed to parse ID3 metadata!");
-    return -1;
-  }
-
-  // Parse metadata
-  if (v1 != NULL)  {
-    song.file_path = song_path;
-    song.title = std::string(v1->title);
-    song.artist = std::string(v1->artist);
-    song.album = std::string(v1->album);
-    song.year = std::string(v1->year);
-  } else if (v2 != NULL)  {
-    song.file_path = song_path;
-    song.title = (v2->title) ? std::string(v2->title->p) : "";
-    song.artist = (v2->artist) ? std::string(v2->artist->p) : "";
-    song.album = (v2->album) ? std::string(v2->album->p) : "";
-    song.year = (v2->year) ? std::string(v2->year->p) : "";
   }
 
   return 0;
 }
 
-int zp3_load_library(const std::string &path) {
-  std::vector<std::string> file_list;
-  walkdir(path, file_list, "mp3");
-  for (const auto &file : file_list) {
+int zp3_parse_metadata(const std::vector<std::string> &song_paths,
+                       std::vector<song_t> &songs) {
+  for (const auto &song_path: song_paths) {
     song_t song;
-    zp3_parse_metadata(file, song);
-    printf("title: %s\n", song.title.c_str());
-    printf("artist: %s\n", song.artist.c_str());
-    printf("album: %s\n", song.album.c_str());
-    printf("\n");
+    if (zp3_parse_metadata(song_path, song) == 0) {
+      songs.push_back(song);
+    }
   }
 
   return 0;
+}
+
+int zp3_load_library(zp3_t &zp3, const std::string &path) {
+  // Parse all songs
+  std::vector<std::string> file_list;
+  walkdir(path, file_list, "mp3");
+  zp3.songs.clear();
+  zp3_parse_metadata(file_list, zp3.songs);
+  std::sort(zp3.songs.begin(), zp3.songs.end(), song_comparator);
+
+  // Get all artists
+  zp3.artists.clear();
+  for (const auto &song : zp3.songs) {
+    zp3.artists[song.artist].insert(song.album);
+  }
+
+  // Get all albums
+  zp3.albums.clear();
+  for (const auto &song : zp3.songs) {
+    zp3.albums[song.album].push_back(song);
+  }
+
+  return 0;
+}
+
+void zp3_print_artists(const zp3_t &zp3) {
+  const auto keys = extract_keys<std::string, std::set<std::string>>(zp3.artists);
+  for (const auto &key : keys) {
+    printf("Artist: %s\n", key.c_str());
+    for (const auto &album: zp3.artists.at(key)) {
+      printf("Album: %s\n", album.c_str());
+    }
+    printf("\n");
+  }
+}
+
+void zp3_print_albums(const zp3_t &zp3) {
+  const auto keys = extract_keys<std::string, std::vector<song_t>>(zp3.albums);
+  for (const auto &key : keys) {
+    printf("Album: %s\n", key.c_str());
+    for (const auto &song : zp3.albums.at(key)) {
+      print_song(song);
+      printf("\n");
+    }
+    printf("----------\n");
+  }
 }
 
 void *zp3_player_thread(void *arg) {
@@ -191,20 +152,43 @@ void *zp3_player_thread(void *arg) {
   zp3->song_time = 0.0f;
 }
 
+int test_zp3_parse_metadata() {
+  const auto song_path = "/data/music/Gorillaz_-_Demon_Days_(Remaster)_(2005)_FLAC/01 - Intro.mp3";
+  song_t song;
+  zp3_parse_metadata(song_path, song);
+
+  return 0;
+}
+
+int test_zp3_player_thread() {
+  // Setup
+  mpg123_init();  // Do this only once!
+  zp3_t zp3;
+  zp3.song_path = "/data/music/great_success.mp3";
+
+  pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
+  pthread_join(zp3.player_thread_id, NULL);
+
+  return 0;
+}
+
+int test_zp3_load_library() {
+  zp3_t zp3;
+  zp3_load_library(zp3, "/data/music");
+  zp3_print_artists(zp3);
+  zp3_print_albums(zp3);
+
+  return 0;
+}
+
 int main(int argc, char **argv) {
   // Setup
   mpg123_init();  // Do this only once!
   zp3_t zp3;
 
-  // zp3_load_library("/data/music");
-
-  song_t song;
-  zp3.song_path = "/data/music/Gorillaz_-_Demon_Days_(Remaster)_(2005)_FLAC/01 - Intro.mp3";
-  zp3_parse_metadata(zp3.song_path, song);
-
-  // zp3.song_path = "/data/music/great_success.mp3";
-  // pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
-  // pthread_join(zp3.player_thread_id, NULL);
+  // test_zp3_player_thread();
+  // test_zp3_parse_metadata();
+  // test_zp3_load_library();
 
   return 0;
 }
