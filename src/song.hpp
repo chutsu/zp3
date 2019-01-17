@@ -10,6 +10,10 @@ struct song_t {
   int track_number = -1;
 };
 
+typedef std::vector<song_t> songs_t;
+typedef std::map<std::string, std::set<std::string>> artists_t;
+typedef std::map<std::string, std::vector<song_t>> albums_t;
+
 bool song_comparator(const song_t &s1, const song_t &s2) {
   if (s1.artist != s2.artist) {
     return (s1.artist < s2.artist);

@@ -1,7 +1,6 @@
 #include "zp3.hpp"
 
-int zp3_parse_metadata(const std::string &song_path,
-                       song_t &song) {
+int zp3_parse_metadata(const std::string &song_path, song_t &song) {
   TagLib::FileRef meta(song_path.c_str());
   if (!meta.isNull() && meta.tag()) {
     TagLib::Tag *tag = meta.tag();
@@ -61,6 +60,49 @@ int zp3_load_library(zp3_t &zp3, const std::string &path) {
   return 0;
 }
 
+std::vector<song_t> zp3_filter_songs(const zp3_t &zp3) {
+  std::vector<song_t> songs;
+
+  if (zp3.target_artist == "" && zp3.target_album == "") {
+    songs = zp3.songs;
+
+  } else {
+    for (const auto &song : zp3.songs) {
+      bool add = true;
+      if (zp3.target_artist != "" && zp3.target_artist != song.artist) {
+        add = false;
+      }
+      if (zp3.target_album != "" && zp3.target_album != song.album) {
+        add = false;
+      }
+      if (add) {
+        songs.push_back(song);
+      }
+    }
+  }
+
+  return songs;
+}
+
+std::vector<std::string> zp3_filter_albums(const zp3_t &zp3) {
+  auto keys = extract_keys<std::string, std::vector<song_t>>(zp3.albums);
+  std::vector<std::string> albums;
+
+  if (zp3.target_artist == "") {
+    albums = keys;
+
+  } else {
+    for (const auto &album: keys) {
+      const auto song = zp3.albums.at(album).at(0);
+      if (zp3.target_artist == song.artist) {
+        albums.push_back(album);
+      }
+    }
+  }
+
+  return albums;
+}
+
 void zp3_print_menu(const zp3_t &zp3, const int index=-1) {
   int menu_index = 0;
   std::vector<std::string> menu_items = {"Songs", "Artists", "Albums"};
@@ -79,20 +121,11 @@ void zp3_print_menu(const zp3_t &zp3, const int index=-1) {
   printf("\n");
 }
 
-void zp3_print_songs(const zp3_t &zp3, const int index=-1) {
+void zp3_print_songs(const zp3_t &zp3, const int index) {
   int song_index = 0;
-  std::vector<song_t> songs = zp3.songs;
-
-  if (zp3.target_artist != "") {
-    for (size_t i = 0; i < songs.size(); i++) {
-      if (songs.front().artist == zp3.target_artist) {
-        pop_front(songs);
-      }
-    }
-  }
 
   system("clear");
-  for (const auto &song : songs) {
+  for (const auto &song : zp3_filter_songs(zp3)) {
     if (song_index == index) {
       printf("%s", KGRN);
     }
@@ -107,7 +140,7 @@ void zp3_print_songs(const zp3_t &zp3, const int index=-1) {
   printf("\n");
 }
 
-void zp3_print_artists(const zp3_t &zp3, const int index=-1) {
+std::string zp3_print_artists(const zp3_t &zp3, const int index=-1) {
   int artist_index = 0;
   const auto keys = extract_keys<std::string, std::set<std::string>>(zp3.artists);
 
@@ -116,40 +149,42 @@ void zp3_print_artists(const zp3_t &zp3, const int index=-1) {
     if (artist_index == index) {
       printf("%s", KGRN);
     }
-    printf("album: %s", key.c_str());
+    printf("Artist: %s", key.c_str());
     if (artist_index == index) {
       printf("%s", KNRM);
     }
     artist_index++;
     printf("\n");
   }
-
   printf("\n");
+
+  return keys[index];
 }
 
-void zp3_print_albums(const zp3_t &zp3, const int index=-1) {
+std::string zp3_print_albums(const zp3_t &zp3, const int index=-1) {
   int album_index = 0;
-  auto keys = extract_keys<std::string, std::vector<song_t>>(zp3.albums);
+  const auto albums = zp3_filter_albums(zp3);
 
   system("clear");
-  for (const auto &key : keys) {
+  for (const auto &album : albums) {
     if (album_index == index) {
       printf("%s", KGRN);
     }
-    printf("%s", key.c_str());
+    printf("%s", album.c_str());
     if (album_index == index) {
       printf("%s", KNRM);
     }
     album_index++;
     printf("\n");
   }
-
   printf("\n");
+
+  return albums[index];
 }
 
 void *zp3_player_thread(void *arg) {
   zp3_t *zp3 = (zp3_t *) arg;
-  zp3->player_state = PLAY;
+  zp3->player_state = PLAYER_PLAY;
 
   // Initialize AO
   ao_initialize();
@@ -162,7 +197,6 @@ void *zp3_player_thread(void *arg) {
   auto buffer = (unsigned char *) malloc(buffer_size * sizeof(unsigned char));
 
   // Open the file and get the decoding format
-  std::cout << "PLAYING: " << zp3->song_path << std::endl;
   mpg123_open(mh, zp3->song_path.c_str());
 
   // Get song format
@@ -191,10 +225,10 @@ void *zp3_player_thread(void *arg) {
     zp3->song_time = (mpg123_tell(mh) / mpg123_spf(mh)) * mpg123_tpf(mh);
 
     // Pause?
-    while (zp3->player_state == PAUSE);
+    while (zp3->player_state == PLAYER_PAUSE);
 
     // Stop?
-    if (zp3->player_state == STOP) {
+    if (zp3->player_state == PLAYER_STOP) {
       break;
     }
 
@@ -215,7 +249,7 @@ void *zp3_player_thread(void *arg) {
 
   // Reset player
   // zp3->song_path = "";
-  zp3->player_state = STOP;
+  zp3->player_state = PLAYER_STOP;
   zp3->player_is_dead = true;
   zp3->song_length = 0.0f;
   zp3->song_time = 0.0f;
@@ -230,8 +264,8 @@ int zp3_init(zp3_t &zp3, const std::string &music_path) {
 }
 
 int zp3_play(zp3_t &zp3) {
-  if (zp3.player_state != STOP) {
-    zp3.player_state = STOP;
+  if (zp3.player_state != PLAYER_STOP) {
+    zp3.player_state = PLAYER_STOP;
     pthread_join(zp3.player_thread_id, NULL);
   }
   pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
@@ -278,7 +312,7 @@ int zp3_songs_mode(zp3_t &zp3) {
 }
 
 int zp3_artists_mode(zp3_t &zp3) {
-  zp3_print_artists(zp3, 0);
+  std::string artist = zp3_print_artists(zp3, 0);
 
   int menu_idx = 0;
   int max_entries = zp3.artists.size() - 1;
@@ -295,18 +329,20 @@ int zp3_artists_mode(zp3_t &zp3) {
         menu_idx = (menu_idx < 0) ? 0 : menu_idx;
         break;
       case 'l':
+        zp3.target_artist = artist;
+        zp3.prev_mode = MODE_ARTISTS;
         return 2;
       default:
         continue;
     }
 
     system("clear");
-    zp3_print_artists(zp3, menu_idx);
+    artist = zp3_print_artists(zp3, menu_idx);
   }
 }
 
 int zp3_albums_mode(zp3_t &zp3) {
-  zp3_print_albums(zp3, 0);
+  std::string album = zp3_print_albums(zp3, 0);
 
   int menu_idx = 0;
   int max_entries = zp3.albums.size() - 1;
@@ -323,17 +359,21 @@ int zp3_albums_mode(zp3_t &zp3) {
         menu_idx = (menu_idx < 0) ? 0 : menu_idx;
         break;
       case 'l':
-        break;
+        zp3.target_album = album;
+        zp3.prev_mode = MODE_ALBUMS;
+        return 0;
       default:
         continue;
     }
 
     system("clear");
-    zp3_print_albums(zp3, menu_idx);
+    album = zp3_print_albums(zp3, menu_idx);
   }
 }
 
 int zp3_menu_mode(zp3_t &zp3) {
+  zp3.target_artist = "";
+  zp3.target_album = "";
   zp3_print_menu(zp3, 0);
 
   int menu_index = 0;
@@ -373,7 +413,85 @@ int zp3_loop(zp3_t &zp3) {
   return 0;
 }
 
+int test_zp3_filter_songs() {
+  zp3_t zp3;
+  zp3_load_library(zp3, "./test_data/library");
+
+  // No filter
+  auto songs = zp3_filter_songs(zp3);
+  CHECK(songs.size() > 0);
+
+  // Add artist filter
+  zp3.target_artist = "Bob Dylan";
+  songs = zp3_filter_songs(zp3);
+  for (const auto &song : songs) {
+    CHECK(song.artist == "Bob Dylan");
+  }
+
+  // Add artist filter
+  zp3.target_artist = "Michael Jackson";
+  zp3.target_album = "ALBUM3";
+  songs = zp3_filter_songs(zp3);
+  for (const auto &song : songs) {
+    CHECK(song.artist == "Michael Jackson");
+    CHECK(song.album == "ALBUM3");
+  }
+
+  return 0;
+}
+
+int test_zp3_filter_albums() {
+  zp3_t zp3;
+  zp3_load_library(zp3, "./test_data/library");
+
+  // No filter
+  auto albums = zp3_filter_albums(zp3);
+  CHECK(albums.size() > 0);
+
+  // Apply artist filter
+  zp3.target_artist = "Michael Jackson";
+  albums = zp3_filter_albums(zp3);
+  CHECK(albums.size() == 2);
+  CHECK(albums.at(0) == "ALBUM2");
+  CHECK(albums.at(1) == "ALBUM3");
+
+  return 0;
+}
+
 int test_zp3_print_songs() {
+  zp3_t zp3;
+  zp3_load_library(zp3, "./test_data/library");
+
+  // No filter
+  zp3_print_songs(zp3, 0);
+
+  // Apply artist filter
+  zp3.target_artist = "Michael Jackson";
+  zp3.target_album = "ALBUM3";
+  zp3_print_songs(zp3, 0);
+
+  return 0;
+}
+
+int test_zp3_print_artists() {
+  zp3_t zp3;
+  zp3_load_library(zp3, "./test_data/library");
+  zp3_print_artists(zp3, 0);
+
+  return 0;
+}
+
+int test_zp3_print_albums() {
+  zp3_t zp3;
+  zp3_load_library(zp3, "./test_data/library");
+
+  // No filter
+  zp3_print_albums(zp3, 0);
+
+  // Apply artist filter
+  zp3.target_artist = "Michael Jackson";
+  zp3_print_albums(zp3, 0);
+
   return 0;
 }
 
@@ -409,28 +527,33 @@ int test_zp3_load_library() {
   zp3_t zp3;
   zp3_load_library(zp3, "./test_data/library");
   // zp3_print_artists(zp3);
-  // zp3_print_albums(zp3);
+  zp3.target_artist = "Bob Dylan";
+  zp3_print_albums(zp3, 0);
 
-  CHECK(zp3.artists.size() == 2);
-  CHECK(zp3.albums.size() == 2);
-  CHECK(zp3.songs.size() == 10);
+  // CHECK(zp3.artists.size() == 2);
+  // CHECK(zp3.albums.size() == 2);
+  // CHECK(zp3.songs.size() == 10);
 
   return 0;
 }
 
 int main(int argc, char **argv) {
   // Run tests
-  RUN_TEST(test_zp3_print_songs);
+  // RUN_TEST(test_zp3_filter_songs);
+  // RUN_TEST(test_zp3_filter_albums);
+  // RUN_TEST(test_zp3_print_songs);
+  // RUN_TEST(test_zp3_print_artists);
+  // RUN_TEST(test_zp3_print_albums);
   // RUN_TEST(test_zp3_parse_metadata);
   // RUN_TEST(test_zp3_player_thread);
   // RUN_TEST(test_zp3_load_library);
 
   // Play
-  // zp3_t zp3;
-  // if (zp3_init(zp3, "/data/music") != 0) {
-  //   FATAL("Failed to initialize ZP3!");
-  // }
-  // zp3_loop(zp3);
+  zp3_t zp3;
+  if (zp3_init(zp3, "/data/music") != 0) {
+    FATAL("Failed to initialize ZP3!");
+  }
+  zp3_loop(zp3);
 
   return 0;
 }

@@ -46,14 +46,15 @@
   }
 
 // ZP3 STATES
-#define MENU 0
-#define SONGS 1
-#define ARTISTS 2
-#define ALBUMS 3
+#define MODE_MENU 0
+#define MODE_SONGS 1
+#define MODE_ARTISTS 2
+#define MODE_ALBUMS 3
+#define MODE_PLAYER 4
 
-#define PLAY 0
-#define STOP 1
-#define PAUSE 2
+#define PLAYER_PLAY 0
+#define PLAYER_STOP 1
+#define PLAYER_PAUSE 2
 
 struct zp3_t {
   // Settings
@@ -61,20 +62,20 @@ struct zp3_t {
   float max_volume = 1.0f;
 
   // State
-  int state = MENU;
+  int prev_mode = MODE_MENU;
   float volume = 0.3f;
   std::string target_artist;
   std::string target_album;
 
   // Library
-  std::vector<song_t> songs;
-  std::map<std::string, std::set<std::string>> artists;
-  std::map<std::string, std::vector<song_t>> albums;
+  songs_t songs;
+  artists_t artists;
+  albums_t albums;
 
   // Player
   pthread_t player_thread_id;
   std::string song_path;
-  int player_state = STOP;
+  int player_state = PLAYER_STOP;
   bool player_is_dead = false;
   float song_length = 0.0f;
   float song_time = 0.0f;
