@@ -280,8 +280,11 @@ int zp3_songs_mode(zp3_t &zp3) {
   int max_entries = zp3.songs.size() - 1;
   while (true) {
     switch (getch()) {
-      case 'h':
-        return -1;
+      case 'h': {
+        const auto mode = zp3.history.back();
+        zp3.history.pop_back();
+        return mode;
+      }
       case 'j':
         menu_idx++;
         menu_idx = (menu_idx > max_entries) ? max_entries : menu_idx;
@@ -318,8 +321,11 @@ int zp3_artists_mode(zp3_t &zp3) {
   int max_entries = zp3.artists.size() - 1;
   while (true) {
     switch (getch()) {
-      case 'h':
-        return -1;
+      case 'h': {
+        const auto mode = zp3.history.back();
+        zp3.history.pop_back();
+        return mode;
+      }
       case 'j':
         menu_idx++;
         menu_idx = (menu_idx >= max_entries) ? max_entries : menu_idx;
@@ -330,8 +336,8 @@ int zp3_artists_mode(zp3_t &zp3) {
         break;
       case 'l':
         zp3.target_artist = artist;
-        zp3.prev_mode = MODE_ARTISTS;
-        return 2;
+        zp3.history.push_back(ARTISTS);
+        return ALBUMS;
       default:
         continue;
     }
@@ -348,8 +354,11 @@ int zp3_albums_mode(zp3_t &zp3) {
   int max_entries = zp3.albums.size() - 1;
   while (true) {
     switch (getch()) {
-      case 'h':
-        return -1;
+      case 'h': {
+        const auto mode = zp3.history.back();
+        zp3.history.pop_back();
+        return mode;
+      }
       case 'j':
         menu_idx++;
         menu_idx = (menu_idx >= max_entries) ? max_entries : menu_idx;
@@ -360,8 +369,8 @@ int zp3_albums_mode(zp3_t &zp3) {
         break;
       case 'l':
         zp3.target_album = album;
-        zp3.prev_mode = MODE_ALBUMS;
-        return 0;
+        zp3.history.push_back(ALBUMS);
+        return SONGS;
       default:
         continue;
     }
@@ -380,6 +389,9 @@ int zp3_menu_mode(zp3_t &zp3) {
   std::vector<std::string> menu_items = {"Songs", "Artists", "Albums"};
   while (true) {
     switch (getch()) {
+      case 'h':
+        zp3.history.clear();
+        break;
       case 'j':
         menu_index++;
         menu_index = (menu_index > 2) ? 2 : menu_index;
@@ -389,7 +401,8 @@ int zp3_menu_mode(zp3_t &zp3) {
         menu_index = (menu_index < 0) ? 0 : menu_index;
         break;
       case 'l':
-        return menu_index;
+        zp3.history.push_back(MENU);
+        return menu_index + 1;
       default:
         continue;
     }
@@ -401,13 +414,13 @@ int zp3_menu_mode(zp3_t &zp3) {
 }
 
 int zp3_loop(zp3_t &zp3) {
-  int retval = -1;
+  int retval = MENU;
   while (true) {
     switch (retval) {
-      case -1: retval = zp3_menu_mode(zp3); break;
-      case 0: retval = zp3_songs_mode(zp3); break;
-      case 1: retval = zp3_artists_mode(zp3); break;
-      case 2: retval = zp3_albums_mode(zp3); break;
+      case MENU: retval = zp3_menu_mode(zp3); break;
+      case SONGS: retval = zp3_songs_mode(zp3); break;
+      case ARTISTS: retval = zp3_artists_mode(zp3); break;
+      case ALBUMS: retval = zp3_albums_mode(zp3); break;
     }
   }
   return 0;
@@ -530,23 +543,23 @@ int test_zp3_load_library() {
   zp3.target_artist = "Bob Dylan";
   zp3_print_albums(zp3, 0);
 
-  // CHECK(zp3.artists.size() == 2);
-  // CHECK(zp3.albums.size() == 2);
-  // CHECK(zp3.songs.size() == 10);
+  CHECK(zp3.artists.size() == 2);
+  CHECK(zp3.albums.size() == 2);
+  CHECK(zp3.songs.size() == 10);
 
   return 0;
 }
 
 int main(int argc, char **argv) {
   // Run tests
-  // RUN_TEST(test_zp3_filter_songs);
-  // RUN_TEST(test_zp3_filter_albums);
+  RUN_TEST(test_zp3_filter_songs);
+  RUN_TEST(test_zp3_filter_albums);
   // RUN_TEST(test_zp3_print_songs);
   // RUN_TEST(test_zp3_print_artists);
   // RUN_TEST(test_zp3_print_albums);
-  // RUN_TEST(test_zp3_parse_metadata);
-  // RUN_TEST(test_zp3_player_thread);
-  // RUN_TEST(test_zp3_load_library);
+  RUN_TEST(test_zp3_parse_metadata);
+  RUN_TEST(test_zp3_player_thread);
+  RUN_TEST(test_zp3_load_library);
 
   // Play
   zp3_t zp3;

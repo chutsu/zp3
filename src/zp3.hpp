@@ -20,7 +20,7 @@
 
 #include "util.hpp"
 #include "log.hpp"
-#include "song.hpp"
+#include "music.hpp"
 
 #define KNRM "\x1B[1;0m"
 #define KRED "\x1B[1;31m"
@@ -46,11 +46,11 @@
   }
 
 // ZP3 STATES
-#define MODE_MENU 0
-#define MODE_SONGS 1
-#define MODE_ARTISTS 2
-#define MODE_ALBUMS 3
-#define MODE_PLAYER 4
+#define MENU 0
+#define SONGS 1
+#define ARTISTS 2
+#define ALBUMS 3
+#define PLAYER 4
 
 #define PLAYER_PLAY 0
 #define PLAYER_STOP 1
@@ -62,7 +62,7 @@ struct zp3_t {
   float max_volume = 1.0f;
 
   // State
-  int prev_mode = MODE_MENU;
+  std::vector<int> history;
   float volume = 0.3f;
   std::string target_artist;
   std::string target_album;

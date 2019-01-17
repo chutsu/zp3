@@ -1,5 +1,5 @@
-#ifndef ZP3_SONG_HPP
-#define ZP3_SONG_HPP
+#ifndef ZP3_MUSIC_HPP
+#define ZP3_MUSIC_HPP
 
 struct song_t {
   std::string file_path;
@@ -34,4 +34,4 @@ void print_song(const song_t &song) {
   printf("track number: %d\n", song.track_number);
 }
 
-#endif // ZP3_SONG_HPP
+#endif // ZP3_MUSIC_HPP
