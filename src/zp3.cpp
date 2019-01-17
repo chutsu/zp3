@@ -5,6 +5,7 @@ int zp3_parse_metadata(const std::string &song_path,
   TagLib::FileRef meta(song_path.c_str());
   if (!meta.isNull() && meta.tag()) {
     TagLib::Tag *tag = meta.tag();
+    song.file_path = song_path;
     song.title = tag->title().toCString();
     song.artist = tag->artist().toCString();
     song.album = tag->album().toCString();
@@ -40,6 +41,10 @@ int zp3_load_library(zp3_t &zp3, const std::string &path) {
   zp3.songs.clear();
   zp3_parse_metadata(file_list, zp3.songs);
   std::sort(zp3.songs.begin(), zp3.songs.end(), song_comparator);
+  if (zp3.songs.size() == 0) {
+    LOG_ERROR("No songs found at [%s]!", path.c_str());
+    return -1;
+  }
 
   // Get all artists
   zp3.artists.clear();
@@ -54,6 +59,23 @@ int zp3_load_library(zp3_t &zp3, const std::string &path) {
   }
 
   return 0;
+}
+
+void zp3_print_songs(const zp3_t &zp3, const int index=-1) {
+  int song_index = 0;
+  for (const auto &song : zp3.songs) {
+    if (song_index == index) {
+      printf("%s", KGRN);
+    }
+
+    printf("%s - [%s]\n", song.artist.c_str(), song.title.c_str());
+
+    if (song_index == index) {
+      printf("%s", KNRM);
+    }
+    song_index++;
+  }
+  printf("\n");
 }
 
 void zp3_print_artists(const zp3_t &zp3) {
@@ -94,6 +116,7 @@ void *zp3_player_thread(void *arg) {
   auto buffer = (unsigned char *) malloc(buffer_size * sizeof(unsigned char));
 
   // Open the file and get the decoding format
+  std::cout << "PLAYING: " << zp3->song_path << std::endl;
   mpg123_open(mh, zp3->song_path.c_str());
 
   // Get song format
@@ -145,17 +168,67 @@ void *zp3_player_thread(void *arg) {
   ao_shutdown();
 
   // Reset player
-  zp3->song_path = "";
+  // zp3->song_path = "";
   zp3->player_state = STOP;
   zp3->player_is_dead = true;
   zp3->song_length = 0.0f;
   zp3->song_time = 0.0f;
 }
 
+int zp3_init(zp3_t &zp3, const std::string &music_path) {
+  mpg123_init();  // Do this only once!
+  if (zp3_load_library(zp3, music_path)) {
+    LOG_ERROR("Failed to load music library [%s]!", music_path.c_str());
+  }
+  return 0;
+}
+
+int zp3_play(zp3_t &zp3) {
+  if (zp3.player_state != STOP) {
+    zp3.player_state = STOP;
+    pthread_join(zp3.player_thread_id, NULL);
+  }
+  pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
+
+  return 0;
+}
+
+int zp3_loop(zp3_t &zp3) {
+  zp3_print_songs(zp3, 0);
+
+  int menu_index = 0;
+  while (true) {
+    switch (getch()) {
+      case 'j': menu_index++; break;
+      case 'k': menu_index--; break;
+      case 'p':
+        zp3.song_path = zp3.songs[menu_index].file_path;
+        zp3_play(zp3);
+        break;
+      case '+': zp3.volume += 0.05; break;
+      case '-': zp3.volume += 0.05; break;
+      default:
+        continue;
+    }
+
+    system("clear");
+    zp3_print_songs(zp3, menu_index);
+  }
+
+  return 0;
+}
+
 int test_zp3_parse_metadata() {
-  const auto song_path = "/data/music/Gorillaz_-_Demon_Days_(Remaster)_(2005)_FLAC/01 - Intro.mp3";
+  const auto song_path = "./test_data/library/album1/1-apple.mp3";
   song_t song;
   zp3_parse_metadata(song_path, song);
+  // print_song(song);
+
+  CHECK(song.title == "Apple");
+  CHECK(song.artist == "Bob Dylan");
+  CHECK(song.album == "ALBUM1");
+  CHECK(song.year == 2018);
+  CHECK(song.track_number == 1);
 
   return 0;
 }
@@ -164,7 +237,8 @@ int test_zp3_player_thread() {
   // Setup
   mpg123_init();  // Do this only once!
   zp3_t zp3;
-  zp3.song_path = "/data/music/great_success.mp3";
+  zp3.volume = 0.0;
+  zp3.song_path = "./test_data/great_success.mp3";
 
   pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
   pthread_join(zp3.player_thread_id, NULL);
@@ -174,21 +248,29 @@ int test_zp3_player_thread() {
 
 int test_zp3_load_library() {
   zp3_t zp3;
-  zp3_load_library(zp3, "/data/music");
-  zp3_print_artists(zp3);
-  zp3_print_albums(zp3);
+  zp3_load_library(zp3, "./test_data/library");
+  // zp3_print_artists(zp3);
+  // zp3_print_albums(zp3);
+
+  CHECK(zp3.artists.size() == 2);
+  CHECK(zp3.albums.size() == 2);
+  CHECK(zp3.songs.size() == 10);
 
   return 0;
 }
 
 int main(int argc, char **argv) {
-  // Setup
-  mpg123_init();  // Do this only once!
-  zp3_t zp3;
+  // Run tests
+  // RUN_TEST(test_zp3_parse_metadata);
+  // RUN_TEST(test_zp3_player_thread);
+  // RUN_TEST(test_zp3_load_library);
 
-  // test_zp3_player_thread();
-  // test_zp3_parse_metadata();
-  // test_zp3_load_library();
+  // Play
+  zp3_t zp3;
+  if (zp3_init(zp3, "/data/music") != 0) {
+    FATAL("Failed to initialize ZP3!");
+  }
+  zp3_loop(zp3);
 
   return 0;
 }
