@@ -60,12 +60,17 @@ struct zp3_t {
   // Settings
   float min_volume = 0.0f;
   float max_volume = 1.0f;
+  float volume_delta = 0.05f;
 
   // State
   std::vector<int> history;
   float volume = 0.3f;
   std::string target_artist;
   std::string target_album;
+  int main_menu_idx = 0;
+  int songs_menu_idx = 0;
+  int artists_menu_idx = 0;
+  int albums_menu_idx = 0;
 
   // Library
   songs_t songs;

@@ -283,6 +283,7 @@ int zp3_songs_mode(zp3_t &zp3) {
       case 'h': {
         const auto mode = zp3.history.back();
         zp3.history.pop_back();
+        zp3.songs_menu_idx = 0;
         return mode;
       }
       case 'j':
@@ -298,11 +299,11 @@ int zp3_songs_mode(zp3_t &zp3) {
         zp3_play(zp3);
         break;
       case '+':
-        zp3.volume += 0.05;
+        zp3.volume += zp3.volume_delta;
         zp3.volume = (zp3.volume > 1.0) ? 1.0 : zp3.volume;
         break;
       case '-':
-        zp3.volume -= 0.05;
+        zp3.volume -= zp3.volume_delta;
         zp3.volume = (zp3.volume < 0.0) ? 0.0 : zp3.volume;
         break;
       default:
@@ -315,15 +316,16 @@ int zp3_songs_mode(zp3_t &zp3) {
 }
 
 int zp3_artists_mode(zp3_t &zp3) {
-  std::string artist = zp3_print_artists(zp3, 0);
+  int menu_idx = zp3.artists_menu_idx;
+  std::string artist = zp3_print_artists(zp3, menu_idx);
 
-  int menu_idx = 0;
   int max_entries = zp3.artists.size() - 1;
   while (true) {
     switch (getch()) {
       case 'h': {
         const auto mode = zp3.history.back();
         zp3.history.pop_back();
+        zp3.artists_menu_idx = 0;
         return mode;
       }
       case 'j':
@@ -336,6 +338,7 @@ int zp3_artists_mode(zp3_t &zp3) {
         break;
       case 'l':
         zp3.target_artist = artist;
+        zp3.artists_menu_idx = menu_idx;
         zp3.history.push_back(ARTISTS);
         return ALBUMS;
       default:
@@ -348,15 +351,16 @@ int zp3_artists_mode(zp3_t &zp3) {
 }
 
 int zp3_albums_mode(zp3_t &zp3) {
-  std::string album = zp3_print_albums(zp3, 0);
+  int menu_idx = zp3.albums_menu_idx;
+  std::string album = zp3_print_albums(zp3, menu_idx);
 
-  int menu_idx = 0;
   int max_entries = zp3.albums.size() - 1;
   while (true) {
     switch (getch()) {
       case 'h': {
         const auto mode = zp3.history.back();
         zp3.history.pop_back();
+        zp3.albums_menu_idx = 0;
         return mode;
       }
       case 'j':
@@ -369,6 +373,7 @@ int zp3_albums_mode(zp3_t &zp3) {
         break;
       case 'l':
         zp3.target_album = album;
+        zp3.albums_menu_idx = menu_idx;
         zp3.history.push_back(ALBUMS);
         return SONGS;
       default:
@@ -383,15 +388,13 @@ int zp3_albums_mode(zp3_t &zp3) {
 int zp3_menu_mode(zp3_t &zp3) {
   zp3.target_artist = "";
   zp3.target_album = "";
-  zp3_print_menu(zp3, 0);
 
-  int menu_index = 0;
   std::vector<std::string> menu_items = {"Songs", "Artists", "Albums"};
+  int menu_index = zp3.main_menu_idx;
+  zp3_print_menu(zp3, menu_index);
+
   while (true) {
     switch (getch()) {
-      case 'h':
-        zp3.history.clear();
-        break;
       case 'j':
         menu_index++;
         menu_index = (menu_index > 2) ? 2 : menu_index;
@@ -401,6 +404,7 @@ int zp3_menu_mode(zp3_t &zp3) {
         menu_index = (menu_index < 0) ? 0 : menu_index;
         break;
       case 'l':
+        zp3.main_menu_idx = menu_index;
         zp3.history.push_back(MENU);
         return menu_index + 1;
       default:
@@ -551,15 +555,15 @@ int test_zp3_load_library() {
 }
 
 int main(int argc, char **argv) {
-  // Run tests
-  RUN_TEST(test_zp3_filter_songs);
-  RUN_TEST(test_zp3_filter_albums);
-  // RUN_TEST(test_zp3_print_songs);
-  // RUN_TEST(test_zp3_print_artists);
-  // RUN_TEST(test_zp3_print_albums);
-  RUN_TEST(test_zp3_parse_metadata);
-  RUN_TEST(test_zp3_player_thread);
-  RUN_TEST(test_zp3_load_library);
+  // // Run tests
+  // RUN_TEST(test_zp3_filter_songs);
+  // RUN_TEST(test_zp3_filter_albums);
+  // // RUN_TEST(test_zp3_print_songs);
+  // // RUN_TEST(test_zp3_print_artists);
+  // // RUN_TEST(test_zp3_print_albums);
+  // RUN_TEST(test_zp3_parse_metadata);
+  // RUN_TEST(test_zp3_player_thread);
+  // RUN_TEST(test_zp3_load_library);
 
   // Play
   zp3_t zp3;
