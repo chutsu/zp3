@@ -68,7 +68,6 @@ struct zp3_t {
   std::string target_artist;
   std::string target_album;
   int main_menu_idx = 0;
-  int songs_menu_idx = 0;
   int artists_menu_idx = 0;
   int albums_menu_idx = 0;
 
@@ -79,7 +78,8 @@ struct zp3_t {
 
   // Player
   pthread_t player_thread_id;
-  std::string song_path;
+  std::vector<song_t> song_queue;
+  int song_index = 0;
   int player_state = PLAYER_STOP;
   bool player_is_dead = false;
   float song_length = 0.0f;

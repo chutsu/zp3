@@ -183,6 +183,7 @@ std::string zp3_print_albums(const zp3_t &zp3, const int index=-1) {
 }
 
 void *zp3_player_thread(void *arg) {
+play_song:
   zp3_t *zp3 = (zp3_t *) arg;
   zp3->player_state = PLAYER_PLAY;
 
@@ -197,7 +198,9 @@ void *zp3_player_thread(void *arg) {
   auto buffer = (unsigned char *) malloc(buffer_size * sizeof(unsigned char));
 
   // Open the file and get the decoding format
-  mpg123_open(mh, zp3->song_path.c_str());
+  const auto song = zp3->song_queue.at(zp3->song_index);
+  mpg123_open(mh, song.file_path.c_str());
+  std::cout << "PLAYING: " << song.title << std::endl;
 
   // Get song format
   int channels = 0;
@@ -249,10 +252,18 @@ void *zp3_player_thread(void *arg) {
 
   // Reset player
   // zp3->song_path = "";
-  zp3->player_state = PLAYER_STOP;
+  // zp3->player_state = PLAYER_STOP;
   zp3->player_is_dead = true;
   zp3->song_length = 0.0f;
   zp3->song_time = 0.0f;
+
+  // Play next song if song queue is not finished
+  if (zp3->player_state != PLAYER_STOP) {
+    if ((zp3->song_index + 1) != zp3->song_queue.size()) {
+      zp3->song_index++;
+      goto play_song;
+    }
+  }
 }
 
 int zp3_init(zp3_t &zp3, const std::string &music_path) {
@@ -274,16 +285,32 @@ int zp3_play(zp3_t &zp3) {
 }
 
 int zp3_songs_mode(zp3_t &zp3) {
-  zp3_print_songs(zp3, 0);
-
   int menu_idx = 0;
+
+  // Highlight current song being played
+  if (zp3.player_state == PLAYER_PLAY) {
+    const auto song_playing = zp3.song_queue.at(zp3.song_index);
+    int index = 0;
+
+    for (const auto &song : zp3_filter_songs(zp3)) {
+      const bool matched_title = (song.title == song_playing.title);
+      const bool matched_artist = (song.artist == song_playing.artist);
+      if (matched_title && matched_artist) {
+        menu_idx = index;
+        break;
+      }
+      index++;
+    }
+  }
+
+  // Listen for keyboard events
+  zp3_print_songs(zp3, menu_idx);
   int max_entries = zp3.songs.size() - 1;
   while (true) {
     switch (getch()) {
       case 'h': {
         const auto mode = zp3.history.back();
         zp3.history.pop_back();
-        zp3.songs_menu_idx = 0;
         return mode;
       }
       case 'j':
@@ -294,9 +321,17 @@ int zp3_songs_mode(zp3_t &zp3) {
         menu_idx--;
         menu_idx = (menu_idx < 0) ? 0 : menu_idx;
         break;
-      case 'p':
-        zp3.song_path = zp3.songs[menu_idx].file_path;
+      case 'l':
+        zp3.song_queue = zp3_filter_songs(zp3);
+        zp3.song_index = menu_idx;
         zp3_play(zp3);
+        break;
+      case 'p':
+        if (zp3.player_state == PLAYER_PLAY) {
+          zp3.player_state = PLAYER_PAUSE;
+        } else if (zp3.player_state == PLAYER_PAUSE) {
+          zp3.player_state = PLAYER_PLAY;
+        }
         break;
       case '+':
         zp3.volume += zp3.volume_delta;
@@ -309,7 +344,6 @@ int zp3_songs_mode(zp3_t &zp3) {
       default:
         continue;
     }
-
     system("clear");
     zp3_print_songs(zp3, menu_idx);
   }
@@ -532,7 +566,7 @@ int test_zp3_player_thread() {
   mpg123_init();  // Do this only once!
   zp3_t zp3;
   zp3.volume = 0.0;
-  zp3.song_path = "./test_data/great_success.mp3";
+  // zp3.song_queue = "./test_data/great_success.mp3";
 
   pthread_create(&zp3.player_thread_id, NULL, zp3_player_thread, &zp3);
   pthread_join(zp3.player_thread_id, NULL);
