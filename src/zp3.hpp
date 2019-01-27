@@ -35,6 +35,11 @@
 #define KCYN "\x1B[1;36m"
 #define KWHT "\x1B[1;37m"
 
+#define DISPLAY_CONSOLE 0
+#define DISPLAY_SDL 1
+#define DISPLAY_HARDWARE 2
+#define ZP3_DISPLAY DISPLAY_SDL
+
 #define CHECK(COND) \
   if (COND != true) { \
     return -1; \
@@ -79,6 +84,11 @@ struct zp3_t {
   songs_t songs;
   artists_t artists;
   albums_t albums;
+
+  // Display
+  SAppMenu menu;
+  bool menu_set = false;
+  std::vector<std::string> menu_items;
 
   // Player
   pthread_t player_thread_id;

@@ -1,5 +1,50 @@
 #include "zp3.hpp"
 
+void zp3_display_init(const zp3_t &zp3) {
+#if ZP3_DISPLAY == DISPLAY_SDL
+  ssd1351_128x128_spi_init(3, 4, 5);
+#elif ZP3_DISPLAY == DISPLAY_HARDWARE
+  // Raspberry mode (gpio24=RST, 0=CE, gpio23=D/C)
+  ssd1351_128x128_spi_init(24, 0, 23);
+#endif
+
+  // Initialize display
+  ssd1351_setMode(LCD_MODE_NORMAL);
+  ssd1306_setFixedFont(ssd1306xled_font6x8);
+  ssd1306_clearScreen8();
+}
+
+void zp3_display_menu(zp3_t &zp3, const int index) {
+  if (zp3.menu_items.size() > 0 && zp3.menu_set == false) {
+    // Create and show menu
+    const char *menu_list[10000];
+    for (int i = 0; i < 10000; i++) {
+      menu_list[i] = nullptr;
+    }
+    for (int i = 0; i < zp3.menu_items.size(); i++) {
+      menu_list[i] = zp3.menu_items[i].c_str();
+    }
+
+    ssd1306_createMenu(&zp3.menu, menu_list, zp3.menu_items.size());
+    if (index >= 0) {
+      zp3.menu.selection = index;
+    }
+    ssd1306_showMenu8(&zp3.menu);
+    zp3.menu_set = true;
+  }
+
+  ssd1306_clearScreen8();
+  zp3.menu.selection = index;
+  ssd1306_showMenu8(&zp3.menu);
+  ssd1306_updateMenu8(&zp3.menu);
+}
+
+void zp3_display_clear(zp3_t &zp3) {
+  zp3.menu_items.clear();
+  zp3.menu_set = false;
+  ssd1306_clearScreen8();
+}
+
 int zp3_parse_metadata(const std::string &song_path, song_t &song) {
   TagLib::FileRef meta(song_path.c_str());
   if (!meta.isNull() && meta.tag()) {
@@ -103,10 +148,11 @@ std::vector<std::string> zp3_filter_albums(const zp3_t &zp3) {
   return albums;
 }
 
-void zp3_print_menu(const zp3_t &zp3, const int index=-1) {
+void zp3_print_menu(zp3_t &zp3, const int index=-1) {
   int menu_index = 0;
   std::vector<std::string> menu_items = {"Songs", "Artists", "Albums"};
 
+#if ZP3_DISPLAY == DISPLAY_CONSOLE
   system("clear");
   for (const auto &entry : menu_items) {
     if (menu_index == index) {
@@ -119,11 +165,16 @@ void zp3_print_menu(const zp3_t &zp3, const int index=-1) {
     menu_index++;
   }
   printf("\n");
+#elif ZP3_DISPLAY == DISPLAY_SDL
+  zp3.menu_items = menu_items;
+  zp3_display_menu(zp3, index);
+#endif
 }
 
-void zp3_print_songs(const zp3_t &zp3, const int index) {
+void zp3_print_songs(zp3_t &zp3, const int index) {
   int song_index = 0;
 
+#if ZP3_DISPLAY == DISPLAY_CONSOLE
   system("clear");
   for (const auto &song : zp3_filter_songs(zp3)) {
     if (song_index == index) {
@@ -136,14 +187,22 @@ void zp3_print_songs(const zp3_t &zp3, const int index) {
     song_index++;
     printf("\n");
   }
-
   printf("\n");
+#elif ZP3_DISPLAY == DISPLAY_SDL
+  std::vector<std::string> songs;
+  for (const auto &song : zp3_filter_songs(zp3)) {
+    songs.emplace_back(song.artist + " - " + song.title);
+  }
+  zp3.menu_items = songs;
+  zp3_display_menu(zp3, index);
+#endif
 }
 
-std::string zp3_print_artists(const zp3_t &zp3, const int index=-1) {
+std::string zp3_print_artists(zp3_t &zp3, const int index=-1) {
   int artist_index = 0;
   const auto keys = extract_keys<std::string, std::set<std::string>>(zp3.artists);
 
+#if ZP3_DISPLAY == DISPLAY_CONSOLE
   system("clear");
   for (const auto &key : keys) {
     if (artist_index == index) {
@@ -157,14 +216,19 @@ std::string zp3_print_artists(const zp3_t &zp3, const int index=-1) {
     printf("\n");
   }
   printf("\n");
+#elif ZP3_DISPLAY == DISPLAY_SDL
+  zp3.menu_items = keys;
+  zp3_display_menu(zp3, index);
+#endif
 
   return keys[index];
 }
 
-std::string zp3_print_albums(const zp3_t &zp3, const int index=-1) {
+std::string zp3_print_albums(zp3_t &zp3, const int index=-1) {
   int album_index = 0;
   const auto albums = zp3_filter_albums(zp3);
 
+#if ZP3_DISPLAY == DISPLAY_CONSOLE
   system("clear");
   for (const auto &album : albums) {
     if (album_index == index) {
@@ -178,6 +242,10 @@ std::string zp3_print_albums(const zp3_t &zp3, const int index=-1) {
     printf("\n");
   }
   printf("\n");
+#elif ZP3_DISPLAY == DISPLAY_SDL
+  zp3.menu_items = albums;
+  zp3_display_menu(zp3, index);
+#endif
 
   return albums[index];
 }
@@ -271,6 +339,11 @@ int zp3_init(zp3_t &zp3, const std::string &music_path) {
   if (zp3_load_library(zp3, music_path)) {
     LOG_ERROR("Failed to load music library [%s]!", music_path.c_str());
   }
+
+#if ZP3_DISPLAY == DISPLAY_SDL
+  zp3_display_init(zp3);
+#endif
+
   return 0;
 }
 
@@ -284,7 +357,42 @@ int zp3_play(zp3_t &zp3) {
   return 0;
 }
 
+int zp3_menu_mode(zp3_t &zp3) {
+  printf("Menu Mode\n");
+  zp3.target_artist = "";
+  zp3.target_album = "";
+
+  int menu_index = zp3.main_menu_idx;
+  zp3_print_menu(zp3, menu_index);
+  while (true) {
+    switch (getch()) {
+      case 'j':
+        menu_index++;
+        menu_index = (menu_index > 2) ? 2 : menu_index;
+        break;
+      case 'k':
+        menu_index--;
+        menu_index = (menu_index < 0) ? 0 : menu_index;
+        break;
+      case 'l':
+        zp3.main_menu_idx = menu_index;
+        zp3.history.push_back(MENU);
+        zp3_display_clear(zp3);
+        return menu_index + 1;
+      case 'q':
+        exit(0);
+      default:
+        continue;
+    }
+
+    zp3_print_menu(zp3, menu_index);
+  }
+
+  return -1;
+}
+
 int zp3_songs_mode(zp3_t &zp3) {
+  printf("Songs Mode\n");
   int menu_idx = 0;
 
   // Highlight current song being played
@@ -309,6 +417,7 @@ int zp3_songs_mode(zp3_t &zp3) {
   while (true) {
     switch (getch()) {
       case 'h': {
+        zp3_display_clear(zp3);
         const auto mode = zp3.history.back();
         zp3.history.pop_back();
         return mode;
@@ -344,7 +453,6 @@ int zp3_songs_mode(zp3_t &zp3) {
       default:
         continue;
     }
-    system("clear");
     zp3_print_songs(zp3, menu_idx);
   }
 }
@@ -357,6 +465,7 @@ int zp3_artists_mode(zp3_t &zp3) {
   while (true) {
     switch (getch()) {
       case 'h': {
+        zp3_display_clear(zp3);
         const auto mode = zp3.history.back();
         zp3.history.pop_back();
         zp3.artists_menu_idx = 0;
@@ -371,6 +480,7 @@ int zp3_artists_mode(zp3_t &zp3) {
         menu_idx = (menu_idx < 0) ? 0 : menu_idx;
         break;
       case 'l':
+        zp3_display_clear(zp3);
         zp3.target_artist = artist;
         zp3.artists_menu_idx = menu_idx;
         zp3.history.push_back(ARTISTS);
@@ -378,8 +488,6 @@ int zp3_artists_mode(zp3_t &zp3) {
       default:
         continue;
     }
-
-    system("clear");
     artist = zp3_print_artists(zp3, menu_idx);
   }
 }
@@ -392,6 +500,7 @@ int zp3_albums_mode(zp3_t &zp3) {
   while (true) {
     switch (getch()) {
       case 'h': {
+        zp3_display_clear(zp3);
         const auto mode = zp3.history.back();
         zp3.history.pop_back();
         zp3.albums_menu_idx = 0;
@@ -406,6 +515,7 @@ int zp3_albums_mode(zp3_t &zp3) {
         menu_idx = (menu_idx < 0) ? 0 : menu_idx;
         break;
       case 'l':
+        zp3_display_clear(zp3);
         zp3.target_album = album;
         zp3.albums_menu_idx = menu_idx;
         zp3.history.push_back(ALBUMS);
@@ -413,42 +523,8 @@ int zp3_albums_mode(zp3_t &zp3) {
       default:
         continue;
     }
-
-    system("clear");
     album = zp3_print_albums(zp3, menu_idx);
   }
-}
-
-int zp3_menu_mode(zp3_t &zp3) {
-  zp3.target_artist = "";
-  zp3.target_album = "";
-
-  std::vector<std::string> menu_items = {"Songs", "Artists", "Albums"};
-  int menu_index = zp3.main_menu_idx;
-  zp3_print_menu(zp3, menu_index);
-
-  while (true) {
-    switch (getch()) {
-      case 'j':
-        menu_index++;
-        menu_index = (menu_index > 2) ? 2 : menu_index;
-        break;
-      case 'k':
-        menu_index--;
-        menu_index = (menu_index < 0) ? 0 : menu_index;
-        break;
-      case 'l':
-        zp3.main_menu_idx = menu_index;
-        zp3.history.push_back(MENU);
-        return menu_index + 1;
-      default:
-        continue;
-    }
-
-    zp3_print_menu(zp3, menu_index);
-  }
-
-  return -1;
 }
 
 int zp3_loop(zp3_t &zp3) {
@@ -599,50 +675,12 @@ int main(int argc, char **argv) {
   // RUN_TEST(test_zp3_player_thread);
   // RUN_TEST(test_zp3_load_library);
 
-  // // Play
-  // zp3_t zp3;
-  // if (zp3_init(zp3, "/data/music") != 0) {
-  //   FATAL("Failed to initialize ZP3!");
-  // }
-  // zp3_loop(zp3);
-
-  ssd1351_128x128_spi_init(3, 4, 5);
-  // Use this line for Raspberry  (gpio24=RST, 0=CE, gpio23=D/C)
-  // ssd1351_128x128_spi_init(24, 0, 23);
-
-  ssd1351_setMode(LCD_MODE_NORMAL);
-  ssd1306_setFixedFont(ssd1306xled_font6x8);
-  // ssd1306_setFixedFont(FreeMono7x6);
-  ssd1306_clearScreen8();
-
-  SAppMenu menu;
-  const char *menu_items[] =
-  {
-    "draw bitmap",
-    "sprites",
-    "fonts",
-    "nano canvas",
-    "draw lines",
-  };
-  ssd1306_createMenu(&menu, menu_items, 5);
-  ssd1306_showMenu8(&menu);
-
-  bool loop = true;
-  while (loop) {
-    switch (getch()) {
-      case 'j':
-        ssd1306_menuDown(&menu);
-        ssd1306_updateMenu8(&menu);
-        break;
-      case 'k':
-        ssd1306_menuUp(&menu);
-        ssd1306_updateMenu8(&menu);
-        break;
-      case 'q':
-        loop = false;
-        break;
-    }
+  // Play
+  zp3_t zp3;
+  if (zp3_init(zp3, "/data/music") != 0) {
+    FATAL("Failed to initialize ZP3!");
   }
+  zp3_loop(zp3);
 
   return 0;
 }
