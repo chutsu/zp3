@@ -18,9 +18,13 @@
 #include <taglib/fileref.h>
 #include <taglib/tpropertymap.h>
 
+#include <ssd1306.h>
+
 #include "util.hpp"
 #include "log.hpp"
 #include "music.hpp"
+#include "font_verdana.hpp"
+#include "font_freemono.hpp"
 
 #define KNRM "\x1B[1;0m"
 #define KRED "\x1B[1;31m"

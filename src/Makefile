@@ -1,6 +1,13 @@
 CC=g++
-CFLAGS=-I/usr/include
-LIBS=-lmpg123 -lao -ltag -lpthread
+CFLAGS=-I../deps/ssd1306/src
+LIBS=-lmpg123 \
+		 -lao \
+		 -ltag \
+		 -lssd1306 \
+		 -lssd1306_sdl \
+		 -L../deps/ssd1306/bld \
+		 -lSDL2 \
+		 -lpthread
 
 all: zp3
 

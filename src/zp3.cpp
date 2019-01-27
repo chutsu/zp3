@@ -599,12 +599,50 @@ int main(int argc, char **argv) {
   // RUN_TEST(test_zp3_player_thread);
   // RUN_TEST(test_zp3_load_library);
 
-  // Play
-  zp3_t zp3;
-  if (zp3_init(zp3, "/data/music") != 0) {
-    FATAL("Failed to initialize ZP3!");
+  // // Play
+  // zp3_t zp3;
+  // if (zp3_init(zp3, "/data/music") != 0) {
+  //   FATAL("Failed to initialize ZP3!");
+  // }
+  // zp3_loop(zp3);
+
+  ssd1351_128x128_spi_init(3, 4, 5);
+  // Use this line for Raspberry  (gpio24=RST, 0=CE, gpio23=D/C)
+  // ssd1351_128x128_spi_init(24, 0, 23);
+
+  ssd1351_setMode(LCD_MODE_NORMAL);
+  ssd1306_setFixedFont(ssd1306xled_font6x8);
+  // ssd1306_setFixedFont(FreeMono7x6);
+  ssd1306_clearScreen8();
+
+  SAppMenu menu;
+  const char *menu_items[] =
+  {
+    "draw bitmap",
+    "sprites",
+    "fonts",
+    "nano canvas",
+    "draw lines",
+  };
+  ssd1306_createMenu(&menu, menu_items, 5);
+  ssd1306_showMenu8(&menu);
+
+  bool loop = true;
+  while (loop) {
+    switch (getch()) {
+      case 'j':
+        ssd1306_menuDown(&menu);
+        ssd1306_updateMenu8(&menu);
+        break;
+      case 'k':
+        ssd1306_menuUp(&menu);
+        ssd1306_updateMenu8(&menu);
+        break;
+      case 'q':
+        loop = false;
+        break;
+    }
   }
-  zp3_loop(zp3);
 
   return 0;
 }
