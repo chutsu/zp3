@@ -19,6 +19,7 @@
 #include <taglib/tpropertymap.h>
 
 #include <ssd1306.h>
+#include <nano_engine.h>
 
 #include "util.hpp"
 #include "log.hpp"

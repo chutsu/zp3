@@ -39,6 +39,147 @@ void zp3_display_menu(zp3_t &zp3, const int index) {
   ssd1306_updateMenu8(&zp3.menu);
 }
 
+void zp3_display_song(zp3_t *zp3, const song_t &song) {
+  ssd1306_clearScreen8();
+
+  // Setup canvas
+  const int track_scroll_counter = 0;
+  const int screen_width = ssd1306_displayWidth();
+  const int screen_height = ssd1306_displayHeight();
+  uint8_t buffer[(screen_width * screen_height) / 8] = {0};
+  NanoCanvas1_8 canvas(screen_width, screen_height, buffer);
+  ssd1306_clearScreen8();
+  canvas.clear();
+
+  // Track name
+  {
+    const int x = 5 - track_scroll_counter;
+    const int y = 20;
+    canvas.setColor(RGB_COLOR8(255, 255, 255));
+    canvas.printFixed(x, y, song.title.c_str(), STYLE_NORMAL);
+  }
+
+  // Track artist
+  {
+    const int x = 5 - track_scroll_counter;
+    const int y = 40;
+    canvas.setColor(RGB_COLOR8(255, 255, 255));
+    canvas.printFixed(x, y, song.artist.c_str(), STYLE_NORMAL);
+  }
+
+  // Track album
+  {
+    const int x = 5 - track_scroll_counter;
+    const int y = 55;
+    canvas.setColor(RGB_COLOR8(255, 255, 255));
+    canvas.printFixed(x, y, song.album.c_str(), STYLE_NORMAL);
+  }
+
+  // Track progress
+  {
+    float track_progress = zp3->song_time / zp3->song_length;
+    if (track_progress < 0 || zp3->song_length < 0.01) {
+      track_progress = 0.0;
+    } else if (track_progress > 1.0) {
+      track_progress = 1.0;
+    }
+    // -- Progress outline
+    const int top_left[2] = {10, 75};
+    const int bottom_right[2] = {screen_width - 10, top_left[1] + 10};
+    ssd1306_setColor(RGB_COLOR8(255, 255, 255));
+    canvas.drawRect(top_left[0], top_left[1], bottom_right[0], bottom_right[1]);
+    // -- Progress bar
+    const int progress_bar_width = (screen_width - 10) - 10;
+    const int progress_x = 10 + (progress_bar_width * track_progress);
+    ssd1306_setColor(RGB_COLOR8(255, 255, 255));
+    canvas.fillRect(top_left[0], top_left[1], progress_x, bottom_right[1]);
+  }
+
+  // Track status
+  if (zp3->player_state == PLAYER_PAUSE) {
+    // Pause box
+    {
+      const int width = 14;
+      const int center[2] = {screen_width / 2, 105};
+      const int p1[2] = {center[0] - width / 2, center[1] - width / 2};
+      const int p2[2] = {center[0] + width / 2, center[1] + width / 2};
+      canvas.setColor(RGB_COLOR8(255, 255, 255));
+      canvas.fillRect(p1[0], p1[1], p2[0], p2[1]);
+    }
+
+    // Pause split
+    {
+      const int height = 14;
+      const int width = 4;
+      const int center[2] = {screen_width / 2, 105};
+      const int p1[2] = {center[0] - width / 2, center[1] - height / 2};
+      const int p2[2] = {center[0] + width / 2, center[1] + height / 2};
+      canvas.setColor(RGB_COLOR8(0, 0, 0));
+      canvas.fillRect(p1[0], p1[1], p2[0], p2[1]);
+    }
+
+  } else if (zp3->player_state == PLAYER_PLAY) {
+    const int width = 14;
+    const int center[2] = {screen_width / 2, 105};
+    const int p1[2] = {center[0] - width / 2, center[1] - width / 2};
+    const int p2[2] = {center[0] - width / 2, center[1] + width / 2};
+    const int p3[2] = {center[0] + width / 2, center[1]};
+    canvas.setColor(RGB_COLOR8(255, 255, 255));
+    canvas.drawLine(p1[0], p1[1], p2[0], p2[1]);
+    canvas.drawLine(p2[0], p2[1], p3[0], p3[1]);
+    canvas.drawLine(p3[0], p3[1], p1[0], p1[1]);
+
+    // The following is pretty dumb but the canvas object provides
+    // no api to draw a polygon and fill it with a color. This painful hack
+    // will do for now. It essentially fills in the play symbol by filling
+    // every single pixel, from left to right, top to bottom.
+    for (int i = 0; i < 12; i++) {
+      canvas.putPixel(p1[0] + 1, (center[1] - width / 2 + 1) + i);
+    }
+    for (int i = 0; i < 12; i++) {
+      canvas.putPixel(p1[0] + 2, (center[1] - width / 2 + 2) + i);
+    }
+    for (int i = 0; i < 10; i++) {
+      canvas.putPixel(p1[0] + 3, (center[1] - width / 2 + 3) + i);
+    }
+    for (int i = 0; i < 9; i++) {
+      canvas.putPixel(p1[0] + 4, (center[1] - width / 2 + 3) + i);
+    }
+    for (int i = 0; i < 9; i++) {
+      canvas.putPixel(p1[0] + 5, (center[1] - width / 2 + 3) + i);
+    }
+    for (int i = 0; i < 7; i++) {
+      canvas.putPixel(p1[0] + 6, (center[1] - width / 2 + 4) + i);
+    }
+    for (int i = 0; i < 7; i++) {
+      canvas.putPixel(p1[0] + 7, (center[1] - width / 2 + 4) + i);
+    }
+    for (int i = 0; i < 6; i++) {
+      canvas.putPixel(p1[0] + 8, (center[1] - width / 2 + 5) + i);
+    }
+    for (int i = 0; i < 5; i++) {
+      canvas.putPixel(p1[0] + 9, (center[1] - width / 2 + 5) + i);
+    }
+    canvas.putPixel(p1[0] + 10, (center[1] - width / 2 + 6) + 0);
+    canvas.putPixel(p1[0] + 10, (center[1] - width / 2 + 6) + 1);
+    canvas.putPixel(p1[0] + 10, (center[1] - width / 2 + 6) + 2);
+    canvas.putPixel(p1[0] + 11, (center[1] - width / 2 + 7) + 0);
+    canvas.putPixel(p1[0] + 11, (center[1] - width / 2 + 7) + 1);
+    canvas.putPixel(p1[0] + 12, (center[1] - width / 2 + 7));
+
+  } else if (zp3->player_state == PLAYER_STOP) {
+    const int width = 14;
+    const int center[2] = {screen_width / 2, 105};
+    const int p1[2] = {center[0] - width / 2, center[1] - width / 2};
+    const int p2[2] = {center[0] + width / 2, center[1] + width / 2};
+    canvas.setColor(RGB_COLOR8(255, 255, 255));
+    canvas.fillRect(p1[0], p1[1], p2[0], p2[1]);
+  }
+
+  // Display canvas
+  canvas.blt();
+}
+
 void zp3_display_clear(zp3_t &zp3) {
   zp3.menu_items.clear();
   zp3.menu_set = false;
@@ -268,7 +409,6 @@ play_song:
   // Open the file and get the decoding format
   const auto song = zp3->song_queue.at(zp3->song_index);
   mpg123_open(mh, song.file_path.c_str());
-  std::cout << "PLAYING: " << song.title << std::endl;
 
   // Get song format
   int channels = 0;
@@ -294,6 +434,7 @@ play_song:
   while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
     // Update song time
     zp3->song_time = (mpg123_tell(mh) / mpg123_spf(mh)) * mpg123_tpf(mh);
+    zp3_display_song(zp3, song);
 
     // Pause?
     while (zp3->player_state == PLAYER_PAUSE);
@@ -347,7 +488,7 @@ int zp3_init(zp3_t &zp3, const std::string &music_path) {
   return 0;
 }
 
-int zp3_play(zp3_t &zp3) {
+int zp3_player_play(zp3_t &zp3) {
   if (zp3.player_state != PLAYER_STOP) {
     zp3.player_state = PLAYER_STOP;
     pthread_join(zp3.player_thread_id, NULL);
@@ -358,7 +499,7 @@ int zp3_play(zp3_t &zp3) {
 }
 
 int zp3_menu_mode(zp3_t &zp3) {
-  printf("Menu Mode\n");
+  LOG_INFO("Menu mode");
   zp3.target_artist = "";
   zp3.target_album = "";
 
@@ -391,51 +532,25 @@ int zp3_menu_mode(zp3_t &zp3) {
   return -1;
 }
 
-int zp3_songs_mode(zp3_t &zp3) {
-  printf("Songs Mode\n");
-  int menu_idx = 0;
-
-  // Highlight current song being played
-  if (zp3.player_state == PLAYER_PLAY) {
-    const auto song_playing = zp3.song_queue.at(zp3.song_index);
-    int index = 0;
-
-    for (const auto &song : zp3_filter_songs(zp3)) {
-      const bool matched_title = (song.title == song_playing.title);
-      const bool matched_artist = (song.artist == song_playing.artist);
-      if (matched_title && matched_artist) {
-        menu_idx = index;
-        break;
-      }
-      index++;
-    }
-  }
+int zp3_player_mode(zp3_t &zp3) {
+  LOG_INFO("Player mode");
+  zp3_player_play(zp3);
 
   // Listen for keyboard events
-  zp3_print_songs(zp3, menu_idx);
-  int max_entries = zp3.songs.size() - 1;
   while (true) {
+    zp3_display_song(&zp3, zp3.song_queue.at(zp3.song_index));
+
     switch (getch()) {
       case 'h': {
+        zp3.player_state = PLAYER_STOP;
+        sleep(1);
         zp3_display_clear(zp3);
+
         const auto mode = zp3.history.back();
         zp3.history.pop_back();
         return mode;
       }
-      case 'j':
-        menu_idx++;
-        menu_idx = (menu_idx > max_entries) ? max_entries : menu_idx;
-        break;
-      case 'k':
-        menu_idx--;
-        menu_idx = (menu_idx < 0) ? 0 : menu_idx;
-        break;
       case 'l':
-        zp3.song_queue = zp3_filter_songs(zp3);
-        zp3.song_index = menu_idx;
-        zp3_play(zp3);
-        break;
-      case 'p':
         if (zp3.player_state == PLAYER_PLAY) {
           zp3.player_state = PLAYER_PAUSE;
         } else if (zp3.player_state == PLAYER_PAUSE) {
@@ -453,11 +568,50 @@ int zp3_songs_mode(zp3_t &zp3) {
       default:
         continue;
     }
+  }
+
+  return -1;
+}
+
+int zp3_songs_mode(zp3_t &zp3) {
+  LOG_INFO("Songs mode");
+  int menu_idx = zp3.song_index;
+
+  // Listen for keyboard events
+  zp3_print_songs(zp3, menu_idx);
+  int max_entries = zp3.songs.size() - 1;
+  while (true) {
+    switch (getch()) {
+      case 'h': {
+        zp3_display_clear(zp3);
+        zp3.song_index = 0;
+        const auto mode = zp3.history.back();
+        zp3.history.pop_back();
+        return mode;
+      }
+      case 'j':
+        menu_idx++;
+        menu_idx = (menu_idx > max_entries) ? max_entries : menu_idx;
+        break;
+      case 'k':
+        menu_idx--;
+        menu_idx = (menu_idx < 0) ? 0 : menu_idx;
+        break;
+      case 'l':
+        zp3.song_queue = zp3_filter_songs(zp3);
+        zp3.song_index = menu_idx;
+        zp3.history.push_back(SONGS);
+        // zp3_player_play(zp3);
+        return PLAYER;
+      default:
+        continue;
+    }
     zp3_print_songs(zp3, menu_idx);
   }
 }
 
 int zp3_artists_mode(zp3_t &zp3) {
+  LOG_INFO("Artists mode");
   int menu_idx = zp3.artists_menu_idx;
   std::string artist = zp3_print_artists(zp3, menu_idx);
 
@@ -493,6 +647,7 @@ int zp3_artists_mode(zp3_t &zp3) {
 }
 
 int zp3_albums_mode(zp3_t &zp3) {
+  LOG_INFO("Albums mode");
   int menu_idx = zp3.albums_menu_idx;
   std::string album = zp3_print_albums(zp3, menu_idx);
 
@@ -535,8 +690,31 @@ int zp3_loop(zp3_t &zp3) {
       case SONGS: retval = zp3_songs_mode(zp3); break;
       case ARTISTS: retval = zp3_artists_mode(zp3); break;
       case ALBUMS: retval = zp3_albums_mode(zp3); break;
+      case PLAYER: retval = zp3_player_mode(zp3); break;
     }
   }
+  return 0;
+}
+
+int test_zp3_display_song() {
+  zp3_t zp3;
+  zp3_load_library(zp3, "./test_data/library");
+
+  auto songs = zp3_filter_songs(zp3);
+  zp3_display_init(zp3);
+
+  zp3.player_state = PLAYER_PAUSE;
+  zp3_display_song(&zp3, songs[0]);
+  sleep(2);
+
+  zp3.player_state = PLAYER_STOP;
+  zp3_display_song(&zp3, songs[0]);
+  sleep(2);
+
+  zp3.player_state = PLAYER_PLAY;
+  zp3_display_song(&zp3, songs[0]);
+  sleep(2);
+
   return 0;
 }
 
@@ -665,7 +843,8 @@ int test_zp3_load_library() {
 }
 
 int main(int argc, char **argv) {
-  // // Run tests
+  // Run tests
+  // RUN_TEST(test_zp3_display_song);
   // RUN_TEST(test_zp3_filter_songs);
   // RUN_TEST(test_zp3_filter_albums);
   // // RUN_TEST(test_zp3_print_songs);
