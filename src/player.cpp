@@ -47,9 +47,8 @@ play_song:
   // Play
   mpg123_volume(mh, player->volume);
   player->song_length = mpg123_framelength(mh) * mpg123_tpf(mh);
-  const size_t frame_length = mpg123_framelength(mh);
+  // const size_t frame_length = mpg123_framelength(mh);
   size_t done;
-
   while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
     // Update song time
     player->song_time = (mpg123_tell(mh) / mpg123_spf(mh)) * mpg123_tpf(mh);
@@ -92,14 +91,39 @@ play_song:
       goto play_song;
     }
   }
+
+  return nullptr;
 }
 
-int player_play(player_t &player, pthread_t &thread_id) {
+int player_play(player_t &player) {
   if (player.player_state != PLAYER_STOP) {
     player.player_state = PLAYER_STOP;
-    pthread_join(thread_id, NULL);
+    pthread_join(player.thread_id, NULL);
   }
-  pthread_create(&thread_id, NULL, player_thread, &player);
+  pthread_create(&player.thread_id, NULL, player_thread, &player);
 
   return 0;
+}
+
+void player_stop(player_t &player) {
+  player.player_state = PLAYER_STOP;
+  sleep(1);
+}
+
+void player_toggle_pause_play(player_t &player) {
+  if (player.player_state == PLAYER_PLAY) {
+    player.player_state = PLAYER_PAUSE;
+  } else if (player.player_state == PLAYER_PAUSE) {
+    player.player_state = PLAYER_PLAY;
+  }
+}
+
+void player_volume_up(player_t &player) {
+  player.volume += player.volume_delta;
+  player.volume = (player.volume > 1.0) ? 1.0 : player.volume;
+}
+
+void player_volume_down(player_t &player) {
+  player.volume -= player.volume_delta;
+  player.volume = (player.volume < 0.0) ? 0.0 : player.volume;
 }

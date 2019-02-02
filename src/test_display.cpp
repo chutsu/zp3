@@ -16,9 +16,41 @@ int test_display_menu() {
   return 0;
 }
 
+int test_display_song() {
+  music_t music;
+  music_load_library(music, TEST_MUSIC_LIBRARY);
+  song_t song = music.songs.at(0);
+
+  // Test pause
+  {
+    display_t display;
+    display_init();
+    display_song(display, PLAYER_PAUSE, song, 0.01, 1.0);
+    sleep(1);
+  }
+
+  // Test stop
+  {
+    display_t display;
+    display_init();
+    display_song(display, PLAYER_STOP, song, 0.01, 1.0);
+    sleep(1);
+  }
+
+  // Test play
+  {
+    display_t display;
+    display_init();
+    display_song(display, PLAYER_PLAY, song, 0.01, 1.0);
+    sleep(1);
+  }
+
+  return 0;
+}
+
 int test_display_show_songs() {
   music_t music;
-  music_load_library(music, "./test_data/library");
+  music_load_library(music, TEST_MUSIC_LIBRARY);
 
   display_t display;
   display_show_songs(display, music.songs, 0);
@@ -29,7 +61,7 @@ int test_display_show_songs() {
 
 int test_display_show_artists() {
   music_t music;
-  music_load_library(music, "./test_data/library");
+  music_load_library(music, TEST_MUSIC_LIBRARY);
 
   display_t display;
   display_show_artists(display, music.artists, 0);
@@ -40,7 +72,7 @@ int test_display_show_artists() {
 
 int test_display_show_albums() {
   music_t music;
-  music_load_library(music, "./test_data/library");
+  music_load_library(music, TEST_MUSIC_LIBRARY);
 
   std::vector<std::string> album_names;
   for (const auto &album : music.albums) {
@@ -57,6 +89,7 @@ int test_display_show_albums() {
 int main(int argc, char **argv) {
   RUN_TEST(test_display_init);
   RUN_TEST(test_display_menu);
+  RUN_TEST(test_display_song);
   RUN_TEST(test_display_show_songs);
   RUN_TEST(test_display_show_artists);
   RUN_TEST(test_display_show_albums);

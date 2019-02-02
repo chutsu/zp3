@@ -2,7 +2,7 @@
 #include "music.hpp"
 
 int test_song_parse_metadata() {
-  const auto song_path = "./test_data/library/album1/1-apple.mp3";
+  const auto song_path = TEST_MUSIC_LIBRARY "/album1/1-apple.mp3";
   song_t song;
   song_parse_metadata(song, song_path);
   // song_print(song);
@@ -18,7 +18,7 @@ int test_song_parse_metadata() {
 
 int test_music_load_library() {
   music_t music;
-  music_load_library(music, "./test_data/library");
+  music_load_library(music, TEST_MUSIC_LIBRARY);
 
   CHECK(music.artists.size() == 2);
   CHECK(music.albums.size() == 3);
@@ -29,7 +29,7 @@ int test_music_load_library() {
 
 int test_music_filter_songs() {
   music_t music;
-  music_load_library(music, "./test_data/library");
+  music_load_library(music, TEST_MUSIC_LIBRARY);
 
   // Add artist filter
   {
@@ -56,7 +56,7 @@ int test_music_filter_songs() {
 
 int test_music_filter_albums() {
   music_t music;
-  music_load_library(music, "./test_data/library");
+  music_load_library(music, TEST_MUSIC_LIBRARY);
 
   // No filter
   auto albums = music_filter_albums(music);

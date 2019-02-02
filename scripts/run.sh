@@ -4,10 +4,10 @@ set -e
 # cd zp3
 # python3 -m unittest zp3.py
 
-python deps/ssd1306/tools/fontgenerator.py \
-  --ttf scripts/FreeMono.ttf \
-  -s 6 \
-  -f old > src/font_freemono.hpp
+# python deps/ssd1306/tools/fontgenerator.py \
+#   --ttf scripts/FreeMono.ttf \
+#   -s 6 \
+#   -f old > src/font_freemono.hpp
 
 # make tests
 # make deps
@@ -23,8 +23,9 @@ python deps/ssd1306/tools/fontgenerator.py \
 
 cd src && make
 # ./test_music
-# ./test_player
-./test_display
+cd ../bin
+./test_player
+# ./test_display
 
 # cd src \
 #   && make \

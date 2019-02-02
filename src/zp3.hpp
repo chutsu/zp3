@@ -4,8 +4,8 @@
 #include "util.hpp"
 #include "log.hpp"
 #include "music.hpp"
-#include "font_verdana.hpp"
-#include "font_freemono.hpp"
+#include "player.hpp"
+#include "display.hpp"
 
 // ZP3 STATES
 #define MENU 0
@@ -15,11 +15,6 @@
 #define PLAYER 4
 
 struct zp3_t {
-  // Settings
-  float min_volume = 0.0f;
-  float max_volume = 1.0f;
-  float volume_delta = 0.05f;
-
   // State
   std::vector<int> history;
   std::string target_artist;
@@ -27,6 +22,18 @@ struct zp3_t {
   int main_menu_idx = 0;
   int artists_menu_idx = 0;
   int albums_menu_idx = 0;
+
+  music_t music;
+  display_t display;
+  player_t player;
 };
+
+int zp3_init(zp3_t &zp3, const std::string &music_path);
+int zp3_menu_mode(zp3_t &zp3);
+int zp3_player_mode(zp3_t &zp3);
+int zp3_songs_mode(zp3_t &zp3);
+int zp3_artists_mode(zp3_t &zp3);
+int zp3_albums_mode(zp3_t &zp3);
+int zp3_loop(zp3_t &zp3);
 
 #endif // ZP3_HPP

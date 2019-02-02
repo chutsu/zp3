@@ -1,3 +1,6 @@
+#ifndef FREEMONO_FONT_HPP
+#define FREEMONO_FONT_HPP
+
 extern const uint8_t FreeMono7x6[] PROGMEM;
 const uint8_t FreeMono7x6[] PROGMEM =
 {
@@ -110,3 +113,5 @@ const uint8_t FreeMono7x6[] PROGMEM =
     0x00, 0x00, 0x00, // end of unicode tables
 #endif
 };
+
+#endif // FREEMONO_HPP

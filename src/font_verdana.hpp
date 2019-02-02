@@ -1,3 +1,6 @@
+#ifndef VERDANA_HPP
+#define VERDANA_HPP
+
 extern const uint8_t verdana9x9[] PROGMEM;
 const uint8_t verdana9x9[] PROGMEM =
 {
@@ -110,3 +113,5 @@ const uint8_t verdana9x9[] PROGMEM =
     0x00, 0x00, 0x00, // end of unicode tables
 #endif
 };
+
+#endif // VERDANA_HPP

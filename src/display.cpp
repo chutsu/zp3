@@ -11,7 +11,7 @@ void display_init() {
   // Initialize display
   ssd1351_setMode(LCD_MODE_NORMAL);
   ssd1306_setFixedFont(ssd1306xled_font6x8);
-  ssd1306_clearScreen8();
+  ssd1306_clearScreen();
 }
 
 void display_menu(display_t &display, const int index) {
@@ -21,7 +21,7 @@ void display_menu(display_t &display, const int index) {
     for (int i = 0; i < 10000; i++) {
       menu_list[i] = nullptr;
     }
-    for (int i = 0; i < display.menu_items.size(); i++) {
+    for (size_t i = 0; i < display.menu_items.size(); i++) {
       menu_list[i] = display.menu_items[i].c_str();
     }
 
@@ -33,7 +33,7 @@ void display_menu(display_t &display, const int index) {
     display.menu_set = true;
   }
 
-  ssd1306_clearScreen8();
+  ssd1306_clearScreen();
   display.menu.selection = index;
   ssd1306_showMenu8(&display.menu);
   ssd1306_updateMenu8(&display.menu);
@@ -44,7 +44,7 @@ void display_song(display_t &display,
                   const song_t &song,
                   const float song_time,
                   const float song_length) {
-  ssd1306_clearScreen8();
+  ssd1306_clearScreen();
 
   // Setup canvas
   const int track_scroll_counter = 0;
@@ -52,7 +52,7 @@ void display_song(display_t &display,
   const int screen_height = ssd1306_displayHeight();
   uint8_t buffer[(screen_width * screen_height) / 8] = {0};
   NanoCanvas1_8 canvas(screen_width, screen_height, buffer);
-  ssd1306_clearScreen8();
+  ssd1306_clearScreen();
   canvas.clear();
 
   // Track name
@@ -191,11 +191,11 @@ void display_clear(display_t &display) {
 }
 
 void display_show_menu(display_t &display, const int index) {
-  int menu_index = 0;
   std::vector<std::string> menu_items = {"Songs", "Artists", "Albums"};
 
 #if ZP3_DISPLAY == DISPLAY_CONSOLE
   system("clear");
+  int menu_index = 0;
   for (const auto &entry : menu_items) {
     if (menu_index == index) {
       printf("%s", KGRN);
@@ -216,9 +216,8 @@ void display_show_menu(display_t &display, const int index) {
 void display_show_songs(display_t &display,
                         const songs_t &songs,
                         const int index) {
-  int song_index = 0;
-
 #if ZP3_DISPLAY == DISPLAY_CONSOLE
+  int song_index = 0;
   system("clear");
   for (const auto &song : songs) {
     if (song_index == index) {
@@ -245,10 +244,10 @@ void display_show_songs(display_t &display,
 std::string display_show_artists(display_t &display,
                                  const artists_t &artists,
                                  const int index) {
-  int artist_index = 0;
   const auto keys = extract_keys<std::string, std::set<std::string>>(artists);
 
 #if ZP3_DISPLAY == DISPLAY_CONSOLE
+  int artist_index = 0;
   system("clear");
   for (const auto &key : keys) {
     if (artist_index == index) {
@@ -273,9 +272,8 @@ std::string display_show_artists(display_t &display,
 std::string display_show_albums(display_t &display,
                                 const std::vector<std::string> &albums,
                                 const int index) {
-  int album_index = 0;
-
 #if ZP3_DISPLAY == DISPLAY_CONSOLE
+  int album_index = 0;
   system("clear");
   for (const auto &album : albums) {
     if (album_index == index) {
@@ -289,7 +287,7 @@ std::string display_show_albums(display_t &display,
     printf("\n");
   }
   printf("\n");
-#elif ZP3_DISPLAY == DISPLAY_SDL
+#elif ZP3_DISPLAY == DISPLAY_SDL || ZP3_DISPLAY == DISPLAY_HARDWARE
   display.menu_items = albums;
   display_menu(display, index);
 #endif

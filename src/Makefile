@@ -1,4 +1,11 @@
-CC=g++ -std=c++11
+# FILES AND DIRS
+SRCS = $(wildcard *.cpp)
+OBJS = $(SRCS:.cpp=.o)
+TESTS = test_music test_player test_display
+BIN_DIR = ../bin
+
+# COMPILER SETTINGS
+CC=g++ -std=c++11 -Wall
 CFLAGS=-I../deps/ssd1306/src
 LIBS=-lmpg123 \
 	-lao \
@@ -9,22 +16,31 @@ LIBS=-lmpg123 \
 	-lSDL2 \
 	-lpthread
 
-SRCS = $(wildcard *.cpp)
-OBJS = $(SRCS:.cpp=.o)
-
-# ARCHIVER
+# ARCHIVER SETTTINGS
 AR = ar
 ARFLAGS = rvs
 
+# COMPILER COMMANDS
 COMPILE_OBJ = \
 	@echo "CC [${@:.o=.cpp}]"; \
 	$(CC) $(CFLAGS) -c ${@:.o=.cpp} -o $@
 
 MAKE_TEST = \
 	@echo "TEST [$@]"; \
-	$(CC) $(CFLAGS) $@.o -o $@ -L. -lzp3 $(LIBS)
+	$(CC) $(CFLAGS) $@.o -o $(addprefix $(BIN_DIR)/, $@) \
+		-L. -lzp3 $(LIBS)
 
-all: test_display
+MAKE_EXE = \
+	@echo "EXE [$@]"; \
+	$(CC) $(CFLAGS) $@.o -o $(addprefix $(BIN_DIR)/, $@) \
+		-L. -lzp3 $(LIBS)
+
+
+# TARGETS
+all: setup_dirs tests main
+
+setup_dirs:
+	mkdir -p $(BIN_DIR)
 
 clean:
 	@rm -f zp3
@@ -33,10 +49,10 @@ clean:
 %.o: %.cpp
 	$(COMPILE_OBJ)
 
-libzp3.a: util.o music.o display.o player.o
+libzp3.a: util.o music.o display.o player.o zp3.o
 	$(AR) $(ARFLAGS) $@ $?
 
-test_music: test_player.o libzp3.a
+test_music: test_music.o libzp3.a
 	$(MAKE_TEST)
 
 test_player: test_player.o libzp3.a
@@ -45,6 +61,7 @@ test_player: test_player.o libzp3.a
 test_display: test_display.o libzp3.a
 	$(MAKE_TEST)
 
-# zp3: music.o util.o display.o
-# 	@$(CC) $(CFLAGS) -c $@.cpp -o $@.o
-# 	$(CC) $(CFLAGS) $@.o $? -o $@ $(DEPS);
+tests: $(TESTS)
+
+main: main.o libzp3.a
+	$(MAKE_EXE)
