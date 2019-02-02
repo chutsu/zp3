@@ -7,11 +7,6 @@
 #include "font_verdana.hpp"
 #include "font_freemono.hpp"
 
-#define DISPLAY_CONSOLE 0
-#define DISPLAY_SDL 1
-#define DISPLAY_HARDWARE 2
-#define ZP3_DISPLAY DISPLAY_SDL
-
 // ZP3 STATES
 #define MENU 0
 #define SONGS 1

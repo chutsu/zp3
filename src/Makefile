@@ -21,10 +21,10 @@ COMPILE_OBJ = \
 	$(CC) $(CFLAGS) -c ${@:.o=.cpp} -o $@
 
 MAKE_TEST = \
-	@echo "CC [$@.cpp]"; \
-	$(CC) $(CFLAGS) $@.cpp -o $@ -L. -lzp3 $(LIBS)
+	@echo "TEST [$@]"; \
+	$(CC) $(CFLAGS) $@.o -o $@ -L. -lzp3 $(LIBS)
 
-all: test_music test_player
+all: test_display
 
 clean:
 	@rm -f zp3
@@ -33,13 +33,16 @@ clean:
 %.o: %.cpp
 	$(COMPILE_OBJ)
 
-libzp3: util.o music.o display.o player.o
-	$(AR) $(ARFLAGS) $@.a $?
+libzp3.a: util.o music.o display.o player.o
+	$(AR) $(ARFLAGS) $@ $?
 
-test_music: libzp3
+test_music: test_player.o libzp3.a
 	$(MAKE_TEST)
 
-test_player: libzp3
+test_player: test_player.o libzp3.a
+	$(MAKE_TEST)
+
+test_display: test_display.o libzp3.a
 	$(MAKE_TEST)
 
 # zp3: music.o util.o display.o

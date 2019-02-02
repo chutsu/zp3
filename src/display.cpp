@@ -190,105 +190,110 @@ void display_clear(display_t &display) {
   ssd1306_clearScreen();
 }
 
-// void zp3_print_menu(zp3_t &zp3, const int index=-1) {
-//   int menu_index = 0;
-//   std::vector<std::string> menu_items = {"Songs", "Artists", "Albums"};
-//
-// #if ZP3_DISPLAY == DISPLAY_CONSOLE
-//   system("clear");
-//   for (const auto &entry : menu_items) {
-//     if (menu_index == index) {
-//       printf("%s", KGRN);
-//     }
-//     printf("%s\n", entry.c_str());
-//     if (menu_index == index) {
-//       printf("%s", KNRM);
-//     }
-//     menu_index++;
-//   }
-//   printf("\n");
-// #elif ZP3_DISPLAY == DISPLAY_SDL
-//   zp3.menu_items = menu_items;
-//   zp3_display_menu(zp3, index);
-// #endif
-// }
+void display_show_menu(display_t &display, const int index) {
+  int menu_index = 0;
+  std::vector<std::string> menu_items = {"Songs", "Artists", "Albums"};
 
-// void zp3_print_songs(zp3_t &zp3, const int index) {
-//   int song_index = 0;
-//
-// #if ZP3_DISPLAY == DISPLAY_CONSOLE
-//   system("clear");
-//   for (const auto &song : zp3_filter_songs(zp3)) {
-//     if (song_index == index) {
-//       printf("%s", KGRN);
-//     }
-//     printf("%s - [%s]", song.artist.c_str(), song.title.c_str());
-//     if (song_index == index) {
-//       printf("%s", KNRM);
-//     }
-//     song_index++;
-//     printf("\n");
-//   }
-//   printf("\n");
-// #elif ZP3_DISPLAY == DISPLAY_SDL
-//   std::vector<std::string> songs;
-//   for (const auto &song : zp3_filter_songs(zp3)) {
-//     songs.emplace_back(song.artist + " - " + song.title);
-//   }
-//   zp3.menu_items = songs;
-//   zp3_display_menu(zp3, index);
-// #endif
-// }
-//
-// std::string zp3_print_artists(zp3_t &zp3, const int index=-1) {
-//   int artist_index = 0;
-//   const auto keys = extract_keys<std::string, std::set<std::string>>(zp3.artists);
-//
-// #if ZP3_DISPLAY == DISPLAY_CONSOLE
-//   system("clear");
-//   for (const auto &key : keys) {
-//     if (artist_index == index) {
-//       printf("%s", KGRN);
-//     }
-//     printf("Artist: %s", key.c_str());
-//     if (artist_index == index) {
-//       printf("%s", KNRM);
-//     }
-//     artist_index++;
-//     printf("\n");
-//   }
-//   printf("\n");
-// #elif ZP3_DISPLAY == DISPLAY_SDL
-//   zp3.menu_items = keys;
-//   zp3_display_menu(zp3, index);
-// #endif
-//
-//   return keys[index];
-// }
-//
-// std::string zp3_print_albums(zp3_t &zp3, const int index=-1) {
-//   int album_index = 0;
-//   const auto albums = zp3_filter_albums(zp3);
-//
-// #if ZP3_DISPLAY == DISPLAY_CONSOLE
-//   system("clear");
-//   for (const auto &album : albums) {
-//     if (album_index == index) {
-//       printf("%s", KGRN);
-//     }
-//     printf("%s", album.c_str());
-//     if (album_index == index) {
-//       printf("%s", KNRM);
-//     }
-//     album_index++;
-//     printf("\n");
-//   }
-//   printf("\n");
-// #elif ZP3_DISPLAY == DISPLAY_SDL
-//   zp3.menu_items = albums;
-//   zp3_display_menu(zp3, index);
-// #endif
-//
-//   return albums[index];
-// }
-//
+#if ZP3_DISPLAY == DISPLAY_CONSOLE
+  system("clear");
+  for (const auto &entry : menu_items) {
+    if (menu_index == index) {
+      printf("%s", KGRN);
+    }
+    printf("%s\n", entry.c_str());
+    if (menu_index == index) {
+      printf("%s", KNRM);
+    }
+    menu_index++;
+  }
+  printf("\n");
+#elif ZP3_DISPLAY == DISPLAY_SDL
+  display.menu_items = menu_items;
+  display_menu(display, index);
+#endif
+}
+
+void display_show_songs(display_t &display,
+                        const songs_t &songs,
+                        const int index) {
+  int song_index = 0;
+
+#if ZP3_DISPLAY == DISPLAY_CONSOLE
+  system("clear");
+  for (const auto &song : songs) {
+    if (song_index == index) {
+      printf("%s", KGRN);
+    }
+    printf("%s - [%s]", song.artist.c_str(), song.title.c_str());
+    if (song_index == index) {
+      printf("%s", KNRM);
+    }
+    song_index++;
+    printf("\n");
+  }
+  printf("\n");
+#elif ZP3_DISPLAY == DISPLAY_SDL || ZP3_DISPLAY == DISPLAY_HARDWARE
+  std::vector<std::string> menu_items;
+  for (const auto &song : songs) {
+    menu_items.emplace_back(song.artist + " - " + song.title);
+  }
+  display.menu_items = menu_items;
+  display_menu(display, index);
+#endif
+}
+
+std::string display_show_artists(display_t &display,
+                                 const artists_t &artists,
+                                 const int index) {
+  int artist_index = 0;
+  const auto keys = extract_keys<std::string, std::set<std::string>>(artists);
+
+#if ZP3_DISPLAY == DISPLAY_CONSOLE
+  system("clear");
+  for (const auto &key : keys) {
+    if (artist_index == index) {
+      printf("%s", KGRN);
+    }
+    printf("Artist: %s", key.c_str());
+    if (artist_index == index) {
+      printf("%s", KNRM);
+    }
+    artist_index++;
+    printf("\n");
+  }
+  printf("\n");
+#elif ZP3_DISPLAY == DISPLAY_SDL || ZP3_DISPLAY == DISPLAY_HARDWARE
+  display.menu_items = keys;
+  display_menu(display, index);
+#endif
+
+  return keys[index];
+}
+
+std::string display_show_albums(display_t &display,
+                                const std::vector<std::string> &albums,
+                                const int index) {
+  int album_index = 0;
+
+#if ZP3_DISPLAY == DISPLAY_CONSOLE
+  system("clear");
+  for (const auto &album : albums) {
+    if (album_index == index) {
+      printf("%s", KGRN);
+    }
+    printf("%s", album.c_str());
+    if (album_index == index) {
+      printf("%s", KNRM);
+    }
+    album_index++;
+    printf("\n");
+  }
+  printf("\n");
+#elif ZP3_DISPLAY == DISPLAY_SDL
+  display.menu_items = albums;
+  display_menu(display, index);
+#endif
+
+  return albums[index];
+}
+
