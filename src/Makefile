@@ -1,4 +1,4 @@
-CC=g++
+CC=g++ -std=c++11
 CFLAGS=-I../deps/ssd1306/src
 LIBS=-lmpg123 \
 	-lao \
@@ -9,18 +9,39 @@ LIBS=-lmpg123 \
 	-lSDL2 \
 	-lpthread
 
-all: zp3
+SRCS = $(wildcard *.cpp)
+OBJS = $(SRCS:.cpp=.o)
+
+# ARCHIVER
+AR = ar
+ARFLAGS = rvs
+
+COMPILE_OBJ = \
+	@echo "CC [${@:.o=.cpp}]"; \
+	$(CC) $(CFLAGS) -c ${@:.o=.cpp} -o $@
+
+MAKE_TEST = \
+	@echo "CC [$@.cpp]"; \
+	$(CC) $(CFLAGS) $@.cpp -o $@ -L. -lzp3 $(LIBS)
+
+all: test_music test_player
 
 clean:
 	@rm -f zp3
 	@rm -f *.o
 
-music.o:
-	$(CC) $(CFLAGS) -c ${@:.o=.cpp} -o $@
+%.o: %.cpp
+	$(COMPILE_OBJ)
 
-util.o:
-	$(CC) $(CFLAGS) -c ${@:.o=.cpp} -o $@
+libzp3: util.o music.o display.o player.o
+	$(AR) $(ARFLAGS) $@.a $?
 
-zp3: music.o util.o
-	@$(CC) $(CFLAGS) -c $@.cpp -o $@.o
-	$(CC) $(CFLAGS) $@.o $? -o $@ $(LIBS);
+test_music: libzp3
+	$(MAKE_TEST)
+
+test_player: libzp3
+	$(MAKE_TEST)
+
+# zp3: music.o util.o display.o
+# 	@$(CC) $(CFLAGS) -c $@.cpp -o $@.o
+# 	$(CC) $(CFLAGS) $@.o $? -o $@ $(DEPS);

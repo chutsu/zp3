@@ -22,6 +22,8 @@ python deps/ssd1306/tools/fontgenerator.py \
 #   cd -
 
 cd src && make
+# ./test_music
+./test_player
 
 # cd src \
 #   && make \

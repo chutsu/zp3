@@ -1,6 +1,8 @@
 #ifndef ZP3_LOG_HPP
 #define ZP3_LOG_HPP
 
+#include <cstring>
+
 #define __FILENAME__                                                           \
   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
