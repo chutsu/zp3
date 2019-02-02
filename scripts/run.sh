@@ -21,6 +21,8 @@ python deps/ssd1306/tools/fontgenerator.py \
 #   && make -f Makefile.linux SDL_EMULATION=y all \
 #   cd -
 
-cd src \
-  && make \
-  && ./zp3
+cd src && make
+
+# cd src \
+#   && make \
+#   && ./zp3
