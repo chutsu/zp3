@@ -16,7 +16,7 @@
 #define DISPLAY_SDL 1
 #define DISPLAY_HARDWARE 2
 #ifndef ZP3_DISPLAY
-  #define ZP3_DISPLAY DISPLAY_HARDWARE
+  #define ZP3_DISPLAY DISPLAY_SDL
 #endif
 
 #define PLAYER_PLAY 0
@@ -24,6 +24,9 @@
 #define PLAYER_PAUSE 2
 
 struct display_t {
+  const size_t max_chars = 21;
+  const size_t max_entries = 12;
+
   SAppMenu menu;
   bool menu_set = false;
   std::vector<std::string> menu_items;

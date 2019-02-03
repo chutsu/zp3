@@ -5,16 +5,22 @@ TESTS = test_music test_player test_display
 BIN_DIR = ../bin
 
 # COMPILER SETTINGS
-CC=g++ -std=c++11 -Wall
+CC=g++ -std=c++11 -Wall -g
 CFLAGS=-I../deps/ssd1306/src
+# LIBS=-lmpg123 \
+# 	-lao \
+# 	-ltag \
+# 	-L../deps/ssd1306/bld \
+# 	-lssd1306 \
+# 	-lpthread
 LIBS=-lmpg123 \
 	-lao \
 	-ltag \
 	-L../deps/ssd1306/bld \
 	-lssd1306 \
+	-lssd1306_sdl \
+	-lSDL2 \
 	-lpthread
-	#-lssd1306_sdl \
-	#-lSDL2 \
 
 # ARCHIVER SETTTINGS
 AR = ar

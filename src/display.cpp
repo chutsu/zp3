@@ -4,7 +4,7 @@ void display_init() {
 #if ZP3_DISPLAY == DISPLAY_SDL
   ssd1351_128x128_spi_init(3, 4, 5);
 #elif ZP3_DISPLAY == DISPLAY_HARDWARE
-  // Raspberry mode (gpio24=RST, 0=CE, gpio23=D/C)
+  // Raspberry mode (gpio25=RST, 0=CE, gpio24=D/C)
   ssd1351_128x128_spi_init(25, 0, 24);
 #endif
 
@@ -14,29 +14,64 @@ void display_init() {
   ssd1306_clearScreen();
 }
 
-void display_menu(display_t &display, const int index) {
-  if (display.menu_items.size() > 0 && display.menu_set == false) {
-    // Create and show menu
-    const char *menu_list[10000];
-    for (int i = 0; i < 10000; i++) {
-      menu_list[i] = nullptr;
-    }
-    for (size_t i = 0; i < display.menu_items.size(); i++) {
-      menu_list[i] = display.menu_items[i].c_str();
-    }
+static void display_menu_entry(const display_t &display,
+                               const int menu_index,
+                               const int selection_index,
+                               const int x,
+                               const int y) {
+  auto entry = display.menu_items[menu_index];
 
-    ssd1306_createMenu(&display.menu, menu_list, display.menu_items.size());
-    if (index >= 0) {
-      display.menu.selection = index;
+  // Pad the entry if its too short
+  if (entry.length() < display.max_chars) {
+    const int add = display.max_chars - entry.length();
+    for (int i = 0; i < add; i++) {
+      entry += " ";
     }
-    ssd1306_showMenu8(&display.menu);
-    display.menu_set = true;
   }
 
+  // Highlight selected
+  if (menu_index == selection_index) {
+    ssd1306_negativeMode();
+
+    // Add extra highlight line above text
+    {
+      const int screen_width = ssd1306_displayWidth();
+      const int x1 = x;
+      const int x2 = screen_width - (2 * x);
+      const int y1 = y - 1;
+      const int y2 = y - 1;
+      ssd1306_drawLine8(x1, y1, x2, y2);
+    }
+
+    // Add extra highlight line below text
+    {
+      const int screen_width = ssd1306_displayWidth();
+      const int x1 = x;
+      const int x2 = screen_width - (2 * x);
+      const int y1 = y + 8;
+      const int y2 = y + 8;
+      ssd1306_drawLine8(x1, y1, x2, y2);
+    }
+  } else {
+    ssd1306_positiveMode();
+  }
+
+  // Print text
+  ssd1306_printFixed8(x, y, entry.c_str(), STYLE_NORMAL);
+}
+
+void display_menu(display_t &display, const int selection_index) {
   ssd1306_clearScreen();
-  display.menu.selection = index;
-  ssd1306_showMenu8(&display.menu);
-  ssd1306_updateMenu8(&display.menu);
+
+  const int x = 1;
+  int y = 2;
+  const int menu_end = min(display.max_entries, display.menu_items.size());
+  for (int i = 0; i < menu_end; i++) {
+    display_menu_entry(display, i, selection_index, x, y);
+    y += 10;
+  }
+
+  ssd1306_positiveMode();
 }
 
 void display_song(display_t &display,
@@ -66,7 +101,7 @@ void display_song(display_t &display,
   // Track artist
   {
     const int x = 5 - track_scroll_counter;
-    const int y = 40;
+    const int y = 35;
     canvas.setColor(RGB_COLOR8(255, 255, 255));
     canvas.printFixed(x, y, song.artist.c_str(), STYLE_NORMAL);
   }
@@ -74,7 +109,7 @@ void display_song(display_t &display,
   // Track album
   {
     const int x = 5 - track_scroll_counter;
-    const int y = 55;
+    const int y = 50;
     canvas.setColor(RGB_COLOR8(255, 255, 255));
     canvas.printFixed(x, y, song.album.c_str(), STYLE_NORMAL);
   }
@@ -88,7 +123,7 @@ void display_song(display_t &display,
       track_progress = 1.0;
     }
     // -- Progress outline
-    const int top_left[2] = {10, 75};
+    const int top_left[2] = {10, 72};
     const int bottom_right[2] = {screen_width - 10, top_left[1] + 10};
     ssd1306_setColor(RGB_COLOR8(255, 255, 255));
     canvas.drawRect(top_left[0], top_left[1], bottom_right[0], bottom_right[1]);
@@ -234,7 +269,7 @@ void display_show_songs(display_t &display,
 #elif ZP3_DISPLAY == DISPLAY_SDL || ZP3_DISPLAY == DISPLAY_HARDWARE
   std::vector<std::string> menu_items;
   for (const auto &song : songs) {
-    menu_items.emplace_back(song.artist + " - " + song.title);
+    menu_items.emplace_back(song.title);
   }
   display.menu_items = menu_items;
   display_menu(display, index);

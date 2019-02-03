@@ -9,7 +9,6 @@ int test_display_init() {
 int test_display_menu() {
   display_t display;
   display.menu_items = {"Songs", "Artists", "Albums"};
-
   display_menu(display, 0);
   sleep(2);
 
@@ -88,11 +87,11 @@ int test_display_show_albums() {
 
 int main(int argc, char **argv) {
   RUN_TEST(test_display_init);
-  RUN_TEST(test_display_menu);
-  RUN_TEST(test_display_song);
+  // RUN_TEST(test_display_menu);
+  // RUN_TEST(test_display_song);
   RUN_TEST(test_display_show_songs);
-  RUN_TEST(test_display_show_artists);
-  RUN_TEST(test_display_show_albums);
+  // RUN_TEST(test_display_show_artists);
+  // RUN_TEST(test_display_show_albums);
 
   return 0;
 }

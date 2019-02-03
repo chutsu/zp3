@@ -21,7 +21,7 @@ set -e
 #   && make -f Makefile.linux SDL_EMULATION=y all \
 #   cd -
 
-cd src && make
+cd src && make clean && make
 # ./test_music
 cd ../bin
 # ./test_player
