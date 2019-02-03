@@ -5,7 +5,7 @@ void display_init() {
   ssd1351_128x128_spi_init(3, 4, 5);
 #elif ZP3_DISPLAY == DISPLAY_HARDWARE
   // Raspberry mode (gpio24=RST, 0=CE, gpio23=D/C)
-  ssd1351_128x128_spi_init(24, 0, 23);
+  ssd1351_128x128_spi_init(25, 0, 24);
 #endif
 
   // Initialize display
@@ -294,4 +294,3 @@ std::string display_show_albums(display_t &display,
 
   return albums[index];
 }
-

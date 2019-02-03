@@ -16,7 +16,7 @@
 #define DISPLAY_SDL 1
 #define DISPLAY_HARDWARE 2
 #ifndef ZP3_DISPLAY
-  #define ZP3_DISPLAY DISPLAY_SDL
+  #define ZP3_DISPLAY DISPLAY_HARDWARE
 #endif
 
 #define PLAYER_PLAY 0

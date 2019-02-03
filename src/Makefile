@@ -10,11 +10,11 @@ CFLAGS=-I../deps/ssd1306/src
 LIBS=-lmpg123 \
 	-lao \
 	-ltag \
-	-lssd1306 \
-	-lssd1306_sdl \
 	-L../deps/ssd1306/bld \
-	-lSDL2 \
+	-lssd1306 \
 	-lpthread
+	#-lssd1306_sdl \
+	#-lSDL2 \
 
 # ARCHIVER SETTTINGS
 AR = ar

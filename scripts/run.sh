@@ -24,8 +24,8 @@ set -e
 cd src && make
 # ./test_music
 cd ../bin
-./test_player
-# ./test_display
+# ./test_player
+./test_display
 
 # cd src \
 #   && make \
