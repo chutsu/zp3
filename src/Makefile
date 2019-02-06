@@ -55,7 +55,7 @@ clean:
 %.o: %.cpp
 	$(COMPILE_OBJ)
 
-libzp3.a: util.o music.o display.o player.o zp3.o
+libzp3.a: util.o gpio.o music.o display.o player.o zp3.o
 	$(AR) $(ARFLAGS) $@ $?
 
 test_music: test_music.o libzp3.a
