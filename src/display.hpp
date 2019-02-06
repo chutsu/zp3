@@ -23,17 +23,23 @@
 #define PLAYER_STOP 1
 #define PLAYER_PAUSE 2
 
-struct display_t {
+struct menu_t {
+  bool configured = false;
   const size_t max_chars = 21;
   const size_t max_entries = 12;
-
-  SAppMenu menu;
-  bool menu_set = false;
-  std::vector<std::string> menu_items;
+  std::vector<std::string> entries;
 };
 
+struct display_t {
+  menu_t menu;
+};
+
+void menu_init(menu_t &menu, const std::vector<std::string> entries);
+void menu_clear(menu_t &menu);
+std::vector<std::string> menu_get_page(menu_t &menu, const int index);
+
 void display_init();
-void display_menu(display_t &display, const int index);
+void display_menu(display_t &display, const int selection_idx, const int scroll_idx=0);
 void display_song(display_t &display,
                   const int player_state,
                   const song_t &song,

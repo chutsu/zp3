@@ -1,5 +1,28 @@
 #include "display.hpp"
 
+void menu_init(menu_t &menu, const std::vector<std::string> entries) {
+  menu.configured = true;
+  menu.entries = entries;
+}
+
+void menu_clear(menu_t &menu) {
+  menu.configured = false;
+  menu.entries.clear();
+}
+
+std::vector<std::string> menu_get_page(menu_t &menu, const int index) {
+  const int nb_entries = menu.entries.size();
+  const int max_entries = menu.max_entries;
+  const int menu_page = static_cast<int>(index / max_entries);
+
+  const auto idx_start = max_entries * menu_page;
+  const auto remaining = min(nb_entries - idx_start, max_entries);
+  const auto idx_end = idx_start + remaining;
+
+  return std::vector<std::string>{menu.entries.begin() + idx_start,
+                                  menu.entries.begin() + idx_end};
+}
+
 void display_init() {
 #if ZP3_DISPLAY == DISPLAY_SDL
   ssd1351_128x128_spi_init(3, 4, 5);
@@ -14,23 +37,30 @@ void display_init() {
   ssd1306_clearScreen();
 }
 
-static void display_menu_entry(const display_t &display,
-                               const int menu_index,
-                               const int selection_index,
+static void display_menu_entry(const std::string &entry,
+                               const int menu_idx,
+                               const int rel_idx,
                                const int x,
-                               const int y) {
-  auto entry = display.menu_items[menu_index];
+                               const int y,
+                               const int scroll_idx,
+                               const size_t max_chars,
+                               const size_t max_entries) {
+  // Scroll text
+  std::string text = entry;
+  if (menu_idx == rel_idx && entry.length() > max_chars) {
+    text = entry.substr(scroll_idx, -1);
+  }
 
   // Pad the entry if its too short
-  if (entry.length() < display.max_chars) {
-    const int add = display.max_chars - entry.length();
+  if (text.length() < max_chars) {
+    const int add = max_chars - text.length();
     for (int i = 0; i < add; i++) {
-      entry += " ";
+      text += " ";
     }
   }
 
   // Highlight selected
-  if (menu_index == selection_index) {
+  if (menu_idx == rel_idx) {
     ssd1306_negativeMode();
 
     // Add extra highlight line above text
@@ -57,18 +87,38 @@ static void display_menu_entry(const display_t &display,
   }
 
   // Print text
-  ssd1306_printFixed8(x, y, entry.c_str(), STYLE_NORMAL);
+  ssd1306_printFixed8(x, y, text.c_str(), STYLE_NORMAL);
 }
 
-void display_menu(display_t &display, const int selection_index) {
+void display_menu(display_t &display, const int selection_idx, const int scroll_idx) {
   ssd1306_clearScreen();
+  const int max_chars = display.menu.max_chars;
+  const int max_entries = display.menu.max_entries;
 
+  // Display menu
   const int x = 1;
   int y = 2;
-  const int menu_end = min(display.max_entries, display.menu_items.size());
-  for (int i = 0; i < menu_end; i++) {
-    display_menu_entry(display, i, selection_index, x, y);
+  int menu_idx = 0;
+  const auto menu_page = menu_get_page(display.menu, selection_idx);
+
+  // Calculate relative index within a page of entries. This is the local index
+  // within a page of entries. Where selection_idx is the global index.
+  const int idx_end = display.menu.entries.size() - 1;
+  int rel_idx = (selection_idx < 0) ? 0 : selection_idx;
+  rel_idx = (rel_idx > idx_end) ? idx_end : rel_idx;
+  rel_idx = rel_idx % max_entries;
+
+  for (const auto &entry : menu_page) {
+    display_menu_entry(entry,
+                       menu_idx,
+                       rel_idx,
+                       x,
+                       y,
+                       scroll_idx,
+                       max_chars,
+                       max_entries);
     y += 10;
+    menu_idx++;
   }
 
   ssd1306_positiveMode();
@@ -220,8 +270,7 @@ void display_song(display_t &display,
 }
 
 void display_clear(display_t &display) {
-  display.menu_items.clear();
-  display.menu_set = false;
+  menu_clear(display.menu);
   ssd1306_clearScreen();
 }
 
@@ -243,7 +292,7 @@ void display_show_menu(display_t &display, const int index) {
   }
   printf("\n");
 #elif ZP3_DISPLAY == DISPLAY_SDL
-  display.menu_items = menu_items;
+  menu_init(display.menu, menu_items);
   display_menu(display, index);
 #endif
 }
@@ -271,7 +320,7 @@ void display_show_songs(display_t &display,
   for (const auto &song : songs) {
     menu_items.emplace_back(song.title);
   }
-  display.menu_items = menu_items;
+  menu_init(display.menu, menu_items);
   display_menu(display, index);
 #endif
 }
@@ -297,7 +346,7 @@ std::string display_show_artists(display_t &display,
   }
   printf("\n");
 #elif ZP3_DISPLAY == DISPLAY_SDL || ZP3_DISPLAY == DISPLAY_HARDWARE
-  display.menu_items = keys;
+  menu_init(display.menu, keys);
   display_menu(display, index);
 #endif
 
@@ -323,7 +372,7 @@ std::string display_show_albums(display_t &display,
   }
   printf("\n");
 #elif ZP3_DISPLAY == DISPLAY_SDL || ZP3_DISPLAY == DISPLAY_HARDWARE
-  display.menu_items = albums;
+  menu_init(display.menu, albums);
   display_menu(display, index);
 #endif
 
