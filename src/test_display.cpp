@@ -181,7 +181,10 @@ int test_display_show_albums() {
 
 int test_display_scroll_text() {
   display_t display;
-  menu_init(display.menu, {"Songs", "Artists", "Albums"});
+  menu_init(display.menu,
+            {"123456791011121314151617181920",
+             "123456791011121314151617181920",
+             "123456791011121314151617181920"});
 
   int scroll_idx = 0;
   for (int i = 0; i < 6; i++) {
@@ -191,7 +194,7 @@ int test_display_scroll_text() {
   }
   sleep(1);
 
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < 20; i++) {
     scroll_idx = i;
     display_menu(display, 2, scroll_idx);
     usleep(0.5 * 1e6);

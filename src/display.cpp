@@ -37,7 +37,8 @@ void display_init() {
   ssd1306_clearScreen();
 }
 
-static void display_menu_entry(const std::string &entry,
+static void display_menu_entry(NanoCanvas1_8 &canvas,
+                               const std::string &entry,
                                const int menu_idx,
                                const int rel_idx,
                                const int x,
@@ -45,11 +46,11 @@ static void display_menu_entry(const std::string &entry,
                                const int scroll_idx,
                                const size_t max_chars,
                                const size_t max_entries) {
-  // Scroll text
+  // // Scroll text
   std::string text = entry;
-  if (menu_idx == rel_idx && entry.length() > max_chars) {
-    text = entry.substr(scroll_idx, -1);
-  }
+  // if (menu_idx == rel_idx && entry.length() > max_chars) {
+  //   text = entry.substr(scroll_idx, -1);
+  // }
 
   // Pad the entry if its too short
   if (text.length() < max_chars) {
@@ -59,41 +60,26 @@ static void display_menu_entry(const std::string &entry,
     }
   }
 
-  // Highlight selected
-  if (menu_idx == rel_idx) {
-    ssd1306_negativeMode();
-
-    // Add extra highlight line above text
-    {
-      const int screen_width = ssd1306_displayWidth();
-      const int x1 = x;
-      const int x2 = screen_width - (2 * x);
-      const int y1 = y - 1;
-      const int y2 = y - 1;
-      ssd1306_drawLine8(x1, y1, x2, y2);
-    }
-
-    // Add extra highlight line below text
-    {
-      const int screen_width = ssd1306_displayWidth();
-      const int x1 = x;
-      const int x2 = screen_width - (2 * x);
-      const int y1 = y + 8;
-      const int y2 = y + 8;
-      ssd1306_drawLine8(x1, y1, x2, y2);
-    }
-  } else {
-    ssd1306_positiveMode();
-  }
-
   // Print text
-  ssd1306_printFixed8(x, y, text.c_str(), STYLE_NORMAL);
+  canvas.printFixed(x - scroll_idx, y, text.c_str(), STYLE_NORMAL);
+  if (menu_idx == rel_idx) {
+    const int screen_width = ssd1306_displayWidth();
+    const int x1 = x - 1;
+    const int y1 = y - 2;
+    const int x2 = screen_width - (2 * x) + 1;
+    const int y2 = y + 9;
+    canvas.drawRect(x1, y1, x2, y2);
+  }
 }
 
 void display_menu(display_t &display, const int selection_idx, const int scroll_idx) {
-  ssd1306_clearScreen();
   const int max_chars = display.menu.max_chars;
   const int max_entries = display.menu.max_entries;
+
+  const int screen_width = ssd1306_displayWidth();
+  const int screen_height = ssd1306_displayHeight();
+  uint8_t buffer[(screen_width * screen_height) / 8] = {0};
+  NanoCanvas1_8 canvas(screen_width, screen_height, buffer);
 
   // Display menu
   const int x = 1;
@@ -109,7 +95,8 @@ void display_menu(display_t &display, const int selection_idx, const int scroll_
   rel_idx = rel_idx % max_entries;
 
   for (const auto &entry : menu_page) {
-    display_menu_entry(entry,
+    display_menu_entry(canvas,
+                       entry,
                        menu_idx,
                        rel_idx,
                        x,
@@ -117,11 +104,13 @@ void display_menu(display_t &display, const int selection_idx, const int scroll_
                        scroll_idx,
                        max_chars,
                        max_entries);
-    y += 10;
+    y += 12;
     menu_idx++;
   }
 
-  ssd1306_positiveMode();
+  //ssd1306_positiveMode();
+  canvas.setColor(RGB_COLOR8(255, 255, 255));
+  canvas.blt();
 }
 
 void display_song(display_t &display,
@@ -129,7 +118,7 @@ void display_song(display_t &display,
                   const song_t &song,
                   const float song_time,
                   const float song_length) {
-  ssd1306_clearScreen();
+  // ssd1306_clearScreen();
 
   // Setup canvas
   const int track_scroll_counter = 0;
