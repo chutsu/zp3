@@ -5,6 +5,7 @@ int zp3_init(zp3_t &zp3, const std::string &music_path) {
     LOG_ERROR("Failed to load music library [%s]!", music_path.c_str());
   }
   display_init();
+  zp3.player.display = &zp3.display;
 
   return 0;
 }

@@ -1,5 +1,5 @@
 # LOAD MAKE CONFIG
-include config.mk
+include $(PWD)/config.mk
 
 # FILES AND DIRS
 SRCS = $(wildcard *.cpp)
@@ -7,14 +7,7 @@ OBJS = $(SRCS:.cpp=.o)
 TESTS = test_music.o test_player.o test_display.o
 
 # TARGETS
-all: setup_dirs $(TESTS)
-
-setup_dirs:
-	@mkdir -p $(BIN_DIR)
-
-clean:
-	@rm -f zp3
-	@rm -f *.o
+default: $(TESTS) main
 
 %.o: %.cpp
 	$(COMPILE_OBJ)

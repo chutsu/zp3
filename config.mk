@@ -1,9 +1,8 @@
-# DIRS
-BIN_DIR = ../bin
+BIN_DIR=$(PWD)/bin
 
 # COMPILER SETTINGS
 CC=g++ -std=c++11 -Wall -g
-CFLAGS=-I../deps/ssd1306/src
+CFLAGS=-I$(PWD)/deps/ssd1306/src
 # LIBS=-lmpg123 \
 # 	-lao \
 # 	-ltag \
@@ -13,7 +12,7 @@ CFLAGS=-I../deps/ssd1306/src
 LIBS=-lmpg123 \
 	-lao \
 	-ltag \
-	-L../deps/ssd1306/bld \
+	-L$(PWD)/deps/ssd1306/bld \
 	-lssd1306 \
 	-lssd1306_sdl \
 	-lSDL2 \
@@ -32,7 +31,7 @@ MAKE_STATIC_LIB = \
 	$(AR) $(ARFLAGS) $@ $?
 
 MAKE_TEST = \
-	@echo "TEST [${@:.o=}]"; \
+	echo "TEST [${@:.o=}]"; \
 	$(CC) $(CFLAGS) -c ${@:.o=.cpp} -o $@; \
 	$(CC) $(CFLAGS) $@ \
 		-o $(addprefix $(BIN_DIR)/, ${@:.o=}) \

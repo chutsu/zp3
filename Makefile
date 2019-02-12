@@ -1,22 +1,30 @@
-all: deps tests
+# LOAD MAKE CONFIG
+include config.mk
+
+LIB_SSD1306=deps/ssd1306/bld/libssd1306.a
+
+default: all
+
+all: setup_dirs libssd1306
+	@make -s -C src
+
+$(LIB_SSD1306):
+	@echo "Building libssd1306 ..."
+	@cd deps/ssd1306/src && make -s -f Makefile.linux
+
+libssd1306: $(LIB_SSD1306)
+
+libssd1306_sdl:
+	@echo "Building libssd1306 ..."
+	@cd deps/ssd1306/src && make -s -f Makefile.linux SDL_EMULATION=y
+	@cd deps/ssd1306/examples && make -s -f Makefile.linux SDL_EMULATION=y
 
 deps:
 	@sh scripts/install_deps.sh
 
-tests:
-	@cd zp3 && python3 -m unittest -v -b zp3.py
+setup_dirs:
+	@mkdir -p $(BIN_DIR)
 
-test_buttons:
-	@cd zp3 && python3 -m unittest -v zp3.TestButtons
-
-test_display:
-	@cd zp3 && python3 -m unittest -v zp3.TestDisplay
-
-test_song:
-	@cd zp3 && python3 -m unittest -v -b zp3.TestSong
-
-test_music_library:
-	@cd zp3 && python3 -m unittest -v -b zp3.TestMusicLibrary
-
-test_zp3:
-	@cd zp3 && python3 -m unittest zp3.TestZP3
+clean:
+	@rm -f src/*.o
+	@rm -f bin/*

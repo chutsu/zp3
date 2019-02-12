@@ -1,7 +1,7 @@
 #ifndef ZP3_PLAYER_HPP
 #define ZP3_PLAYER_HPP
 
-#include <pthread.h>
+#include <thread>
 #include <vector>
 
 #include <ao/ao.h>
@@ -22,7 +22,8 @@ struct player_t {
   float volume_delta = 0.05f;
 
   // State
-  pthread_t thread_id;
+  std::thread thread;
+  display_t *display = nullptr;
   std::vector<song_t> song_queue;
   size_t song_index = 0;
   int player_state = PLAYER_STOP;

@@ -37,7 +37,7 @@ void display_init() {
   ssd1306_clearScreen();
 }
 
-static void display_menu_entry(NanoCanvas1_8 &canvas,
+static void display_menu_entry(NanoCanvas8 &canvas,
                                const std::string &entry,
                                const int menu_idx,
                                const int rel_idx,
@@ -52,34 +52,35 @@ static void display_menu_entry(NanoCanvas1_8 &canvas,
   //   text = entry.substr(scroll_idx, -1);
   // }
 
-  // Pad the entry if its too short
-  if (text.length() < max_chars) {
-    const int add = max_chars - text.length();
-    for (int i = 0; i < add; i++) {
-      text += " ";
-    }
-  }
-
   // Print text
-  canvas.printFixed(x - scroll_idx, y, text.c_str(), STYLE_NORMAL);
   if (menu_idx == rel_idx) {
+    // Draw white background
+    canvas.setColor(RGB_COLOR8(255, 255, 255));
     const int screen_width = ssd1306_displayWidth();
     const int x1 = x - 1;
-    const int y1 = y - 2;
+    const int y1 = y - 3;
     const int x2 = screen_width - (2 * x) + 1;
-    const int y2 = y + 9;
-    canvas.drawRect(x1, y1, x2, y2);
+    const int y2 = y + 10;
+    canvas.fillRect(x1, y1, x2, y2);
+
+    // Set text color to black
+    canvas.setColor(RGB_COLOR8(0, 0, 0));
+  } else {
+    // Set text color to white
+    canvas.setColor(RGB_COLOR8(255, 255, 255));
   }
+
+  // Draw text
+  canvas.printFixed(x - scroll_idx, y, text.c_str());
 }
 
 void display_menu(display_t &display, const int selection_idx, const int scroll_idx) {
   const int max_chars = display.menu.max_chars;
   const int max_entries = display.menu.max_entries;
 
-  const int screen_width = ssd1306_displayWidth();
-  const int screen_height = ssd1306_displayHeight();
-  uint8_t buffer[(screen_width * screen_height) / 8] = {0};
-  NanoCanvas1_8 canvas(screen_width, screen_height, buffer);
+  uint8_t buffer[display.width * display.height] = {0};
+  NanoCanvas8 canvas(display.width, display.height, buffer);
+  canvas.setMode(CANVAS_MODE_TRANSPARENT);
 
   // Display menu
   const int x = 1;
@@ -108,7 +109,6 @@ void display_menu(display_t &display, const int selection_idx, const int scroll_
     menu_idx++;
   }
 
-  //ssd1306_positiveMode();
   canvas.setColor(RGB_COLOR8(255, 255, 255));
   canvas.blt();
 }
@@ -118,20 +118,15 @@ void display_song(display_t &display,
                   const song_t &song,
                   const float song_time,
                   const float song_length) {
-  // ssd1306_clearScreen();
-
   // Setup canvas
   const int track_scroll_counter = 0;
-  const int screen_width = ssd1306_displayWidth();
-  const int screen_height = ssd1306_displayHeight();
-  uint8_t buffer[(screen_width * screen_height) / 8] = {0};
-  NanoCanvas1_8 canvas(screen_width, screen_height, buffer);
-  ssd1306_clearScreen();
-  canvas.clear();
+  uint8_t buffer[display.width * display.height] = {0};
+  NanoCanvas8 canvas(display.width, display.height, buffer);
+  canvas.setMode(CANVAS_TEXT_WRAP_LOCAL);
 
   // Track name
   {
-    const int x = 5 - track_scroll_counter;
+    const int x = 2 - track_scroll_counter;
     const int y = 20;
     canvas.setColor(RGB_COLOR8(255, 255, 255));
     canvas.printFixed(x, y, song.title.c_str(), STYLE_NORMAL);
@@ -139,7 +134,7 @@ void display_song(display_t &display,
 
   // Track artist
   {
-    const int x = 5 - track_scroll_counter;
+    const int x = 2 - track_scroll_counter;
     const int y = 35;
     canvas.setColor(RGB_COLOR8(255, 255, 255));
     canvas.printFixed(x, y, song.artist.c_str(), STYLE_NORMAL);
@@ -147,7 +142,7 @@ void display_song(display_t &display,
 
   // Track album
   {
-    const int x = 5 - track_scroll_counter;
+    const int x = 2 - track_scroll_counter;
     const int y = 50;
     canvas.setColor(RGB_COLOR8(255, 255, 255));
     canvas.printFixed(x, y, song.album.c_str(), STYLE_NORMAL);
@@ -163,11 +158,11 @@ void display_song(display_t &display,
     }
     // -- Progress outline
     const int top_left[2] = {10, 72};
-    const int bottom_right[2] = {screen_width - 10, top_left[1] + 10};
+    const int bottom_right[2] = {display.width - 10, top_left[1] + 10};
     ssd1306_setColor(RGB_COLOR8(255, 255, 255));
     canvas.drawRect(top_left[0], top_left[1], bottom_right[0], bottom_right[1]);
     // -- Progress bar
-    const int progress_bar_width = (screen_width - 10) - 10;
+    const int progress_bar_width = (display.width - 10) - 10;
     const int progress_x = 10 + (progress_bar_width * track_progress);
     ssd1306_setColor(RGB_COLOR8(255, 255, 255));
     canvas.fillRect(top_left[0], top_left[1], progress_x, bottom_right[1]);
@@ -178,7 +173,7 @@ void display_song(display_t &display,
     // Pause box
     {
       const int width = 14;
-      const int center[2] = {screen_width / 2, 105};
+      const int center[2] = {display.width / 2, 105};
       const int p1[2] = {center[0] - width / 2, center[1] - width / 2};
       const int p2[2] = {center[0] + width / 2, center[1] + width / 2};
       canvas.setColor(RGB_COLOR8(255, 255, 255));
@@ -189,7 +184,7 @@ void display_song(display_t &display,
     {
       const int height = 14;
       const int width = 4;
-      const int center[2] = {screen_width / 2, 105};
+      const int center[2] = {display.width / 2, 105};
       const int p1[2] = {center[0] - width / 2, center[1] - height / 2};
       const int p2[2] = {center[0] + width / 2, center[1] + height / 2};
       canvas.setColor(RGB_COLOR8(0, 0, 0));
@@ -198,7 +193,7 @@ void display_song(display_t &display,
 
   } else if (player_state == PLAYER_PLAY) {
     const int width = 14;
-    const int center[2] = {screen_width / 2, 105};
+    const int center[2] = {display.width / 2, 105};
     const int p1[2] = {center[0] - width / 2, center[1] - width / 2};
     const int p2[2] = {center[0] - width / 2, center[1] + width / 2};
     const int p3[2] = {center[0] + width / 2, center[1]};
@@ -247,7 +242,7 @@ void display_song(display_t &display,
 
   } else if (player_state == PLAYER_STOP) {
     const int width = 14;
-    const int center[2] = {screen_width / 2, 105};
+    const int center[2] = {display.width / 2, 105};
     const int p1[2] = {center[0] - width / 2, center[1] - width / 2};
     const int p2[2] = {center[0] + width / 2, center[1] + width / 2};
     canvas.setColor(RGB_COLOR8(255, 255, 255));

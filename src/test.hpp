@@ -10,8 +10,8 @@
 #define KCYN "\x1B[1;36m"
 #define KWHT "\x1B[1;37m"
 
-#define TEST_MUSIC_LIBRARY "../test_data/library"
-#define TEST_SONG "../test_data/great_success.mp3"
+#define TEST_MUSIC_LIBRARY "test_data/library"
+#define TEST_SONG "test_data/great_success.mp3"
 
 #define CHECK(COND) \
   if ((COND) != true) { \

@@ -47,12 +47,27 @@ play_song:
   // Play
   mpg123_volume(mh, player->volume);
   player->song_length = mpg123_framelength(mh) * mpg123_tpf(mh);
+
+  if (player->display != nullptr) {
+    display_song(*player->display,
+                 PLAYER_PLAY,
+                 song,
+                 0.0,
+                 player->song_length);
+  }
+
   // const size_t frame_length = mpg123_framelength(mh);
   size_t done;
   while (mpg123_read(mh, buffer, buffer_size, &done) == MPG123_OK) {
     // Update song time
     player->song_time = (mpg123_tell(mh) / mpg123_spf(mh)) * mpg123_tpf(mh);
-    // player_display_song(player, song);
+    if (player->display != nullptr) {
+      display_song(*player->display,
+                   player->player_state,
+                   song,
+                   player->song_time,
+                   player->song_length);
+    }
 
     // Pause?
     while (player->player_state == PLAYER_PAUSE);
@@ -98,9 +113,10 @@ play_song:
 int player_play(player_t &player) {
   if (player.player_state != PLAYER_STOP) {
     player.player_state = PLAYER_STOP;
-    pthread_join(player.thread_id, NULL);
+    player.thread.join();
   }
-  pthread_create(&player.thread_id, NULL, player_thread, &player);
+  std::thread t(player_thread, &player);
+  player.thread = std::move(t);
 
   return 0;
 }

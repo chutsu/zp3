@@ -32,6 +32,8 @@ struct menu_t {
 
 struct display_t {
   menu_t menu;
+  const int width = ssd1306_displayWidth();
+  const int height = ssd1306_displayHeight();
 };
 
 void menu_init(menu_t &menu, const std::vector<std::string> entries);

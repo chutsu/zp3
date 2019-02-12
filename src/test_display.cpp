@@ -204,6 +204,31 @@ int test_display_scroll_text() {
   return 0;
 }
 
+int test_display_sandbox() {
+  display_t display;
+
+  const int screen_width = ssd1306_displayWidth();
+  const int screen_height = ssd1306_displayHeight();
+  uint8_t buffer[(screen_width * screen_height) / 8] = {0};
+  NanoCanvas1_8 canvas(screen_width, screen_height, buffer);
+
+  canvas.setColor(RGB_COLOR8(0, 0, 0));
+
+  const int x = 1;
+  const int y = 32;
+  std::string text = "Hello World";
+  for (size_t i = 0; i < (28 - text.length()); i++) {
+    text += " ";
+  }
+  canvas.printFixed(x, y, text.c_str());
+
+  canvas.blt();
+
+  sleep(1);
+
+  return 0;
+}
+
 int main(int argc, char **argv) {
   RUN_TEST(test_menu_init);
   RUN_TEST(test_menu_clear);
@@ -211,12 +236,13 @@ int main(int argc, char **argv) {
 
   RUN_TEST(test_display_init);
   // RUN_TEST(test_display_menu);
-  // RUN_TEST(test_display_song);
+  RUN_TEST(test_display_song);
   // RUN_TEST(test_display_show_menu);
   // RUN_TEST(test_display_show_songs);
   // RUN_TEST(test_display_show_artists);
   // RUN_TEST(test_display_show_albums);
-  RUN_TEST(test_display_scroll_text);
+  // RUN_TEST(test_display_scroll_text);
+  // RUN_TEST(test_display_sandbox);
 
   return 0;
 }
