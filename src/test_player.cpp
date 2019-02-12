@@ -28,12 +28,10 @@ int test_player_play() {
   song_t song;
   song_parse_metadata(song, TEST_SONG);
 
-  display_init();
-
   // Prepare player
   display_t display;
   player_t player;
-  player.volume = 0.5;
+  player.volume = 0.0;
   player.display = &display;
   player.song_queue.push_back(song);
 

@@ -100,7 +100,6 @@ int test_display_song() {
   // Test pause
   {
     display_t display;
-    display_init();
     display_song(display, PLAYER_PAUSE, song, 0.01, 1.0);
     sleep(1);
   }
@@ -108,7 +107,6 @@ int test_display_song() {
   // Test stop
   {
     display_t display;
-    display_init();
     display_song(display, PLAYER_STOP, song, 0.01, 1.0);
     sleep(1);
   }
@@ -116,7 +114,6 @@ int test_display_song() {
   // Test play
   {
     display_t display;
-    display_init();
     display_song(display, PLAYER_PLAY, song, 0.01, 1.0);
     sleep(1);
   }
@@ -235,7 +232,7 @@ int main(int argc, char **argv) {
   RUN_TEST(test_menu_get);
 
   RUN_TEST(test_display_init);
-  // RUN_TEST(test_display_menu);
+  RUN_TEST(test_display_menu);
   RUN_TEST(test_display_song);
   // RUN_TEST(test_display_show_menu);
   // RUN_TEST(test_display_show_songs);

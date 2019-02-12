@@ -84,6 +84,15 @@ play_song:
     mpg123_volume(mh, player->volume);
   }
 
+  // Print 100%
+  if (player->display != nullptr) {
+    display_song(*player->display,
+                  player->player_state,
+                  song,
+                  player->song_length,
+                  player->song_length);
+  }
+
   // Clean up
   free(buffer);
   ao_close(dev);

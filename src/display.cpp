@@ -23,6 +23,10 @@ std::vector<std::string> menu_get_page(menu_t &menu, const int index) {
                                   menu.entries.begin() + idx_end};
 }
 
+display_t::display_t() {
+  display_init();
+}
+
 void display_init() {
 #if ZP3_DISPLAY == DISPLAY_SDL
   ssd1351_128x128_spi_init(3, 4, 5);
